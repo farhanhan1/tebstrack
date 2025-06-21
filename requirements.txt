@@ -5,3 +5,4 @@ flask-sqlalchemy
 bcrypt
 openai
 python-dotenv
+app

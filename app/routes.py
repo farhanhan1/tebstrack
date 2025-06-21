@@ -27,3 +27,9 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('main.login'))
+
+@main.route('/test-session')
+def test_session():
+    from flask import session
+    session['test'] = 'hello'
+    return f"Session set to: {session['test']}"

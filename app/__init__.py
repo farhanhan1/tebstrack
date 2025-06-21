@@ -1,11 +1,16 @@
 from flask import Flask
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # <- force load environment before anything else
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from .routes import main
 from .models import db
 
 login_manager = LoginManager()
-login_manager.login_view = 'login'
+login_manager.login_view = 'main.login'
 
 
 def create_app():
