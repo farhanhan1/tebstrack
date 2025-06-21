@@ -1,0 +1,7 @@
+flask
+flask-login
+flask-wtf
+flask-sqlalchemy
+bcrypt
+openai
+python-dotenv
