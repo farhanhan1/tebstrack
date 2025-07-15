@@ -89,25 +89,80 @@
       padding-top: 1.5rem;
       z-index: 900;
       box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+      transition: transform 0.35s ease, width 0.35s ease;
+      transform: translateX(0);
+      width: 200px;
     }
-    .sidenav a {
+    .sidenav.minimized {
+      width: 60px;
+    }
+    .sidenav-hamburger {
+      width: 28px;
+      height: 28px;
+      margin: 0 0 1.5rem 1.2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1001;
+    }
+    .sidenav-hamburger span {
+      display: block;
+      height: 3px;
+      width: 20px;
+      background: #fff;
+      margin: 3px 0;
+      border-radius: 2px;
+      transition: all 0.3s;
+    }
+    .sidenav-link {
       color: #fff;
       padding: 1rem 1.5rem;
       text-decoration: none;
       font-size: 1.08rem;
       font-weight: 500;
       letter-spacing: 0.5px;
-      transition: background 0.18s, color 0.18s;
+      transition: background 0.18s, color 0.18s, padding 0.3s, font-size 0.3s;
       border-left: 4px solid transparent;
+      display: flex;
+      align-items: center;
     }
-    .sidenav a:hover {
+    .sidenav-link:hover {
       background: #4f8cff;
       color: #fff;
       border-left: 4px solid #fff;
     }
+    .sidenav-icon {
+      font-size: 1.4rem;
+      margin-right: 1.1rem;
+      min-width: 1.4rem;
+      text-align: center;
+      display: inline-block;
+      transition: margin 0.3s;
+    }
+    .sidenav-label {
+      transition: opacity 0.3s, width 0.3s;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .sidenav.minimized .sidenav-link {
+      padding: 1rem 0.7rem;
+      justify-content: center;
+    }
+    .sidenav.minimized .sidenav-icon {
+      margin-right: 0;
+    }
+    .sidenav.minimized .sidenav-label {
+      opacity: 0;
+      width: 0;
+    }
     .main-content {
       margin-left: 200px;
       margin-top: 64px;
+      transition: margin-left 0.3s ease;
+    }
+    .sidenav.minimized ~ .main-content {
+      margin-left: 60px;
     }
     .login-container {
       background: #fff;
@@ -333,11 +388,13 @@
         width: 60px;
         padding-top: 0.5rem;
       }
-      .sidenav a {
-        font-size: 0.95rem;
-        padding: 0.8rem 0.7rem;
+      .sidenav.minimized {
+        width: 60px;
       }
       .main-content {
+        margin-left: 60px;
+      }
+      .sidenav.minimized ~ .main-content {
         margin-left: 60px;
       }
     }
@@ -355,6 +412,18 @@
           dropdown.classList.remove('show');
         });
       }
+      var sidenav = document.getElementById('sidenav');
+      var hamburger = document.getElementById('sidenav-hamburger');
+      var mainContent = document.querySelector('.main-content');
+      hamburger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        sidenav.classList.toggle('minimized');
+        if (sidenav.classList.contains('minimized')) {
+          mainContent.style.marginLeft = '60px';
+        } else {
+          mainContent.style.marginLeft = window.innerWidth <= 700 ? '60px' : '200px';
+        }
+      });
     });
   </script>
 </head>
@@ -374,14 +443,34 @@
     </div>
     {% endif %}
   </div>
-  <div class="sidenav">
-    <a href="{{ url_for('main.index') }}">Dashboard</a>
-    <a href="{{ url_for('main.profile') }}">Profile</a>
+  <div class="sidenav" id="sidenav">
+    <div class="sidenav-hamburger" id="sidenav-hamburger">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <a href="{{ url_for('main.index') }}" class="sidenav-link" data-label="Dashboard">
+      <span class="sidenav-icon">🏠</span>
+      <span class="sidenav-label">Dashboard</span>
+    </a>
+    <a href="{{ url_for('main.profile') }}" class="sidenav-link" data-label="Profile">
+      <span class="sidenav-icon">👤</span>
+      <span class="sidenav-label">Profile</span>
+    </a>
     {% if current_user.role == 'admin' %}
-    <a href="{{ url_for('main.manage_users') }}">Manage Users</a>
-    <a href="{{ url_for('main.audit_logs') }}">Audit Logs</a>
+    <a href="{{ url_for('main.manage_users') }}" class="sidenav-link" data-label="Manage Users">
+      <span class="sidenav-icon">👥</span>
+      <span class="sidenav-label">Manage Users</span>
+    </a>
+    <a href="{{ url_for('main.audit_logs') }}" class="sidenav-link" data-label="Audit Logs">
+      <span class="sidenav-icon">📜</span>
+      <span class="sidenav-label">Audit Logs</span>
+    </a>
     {% endif %}
-    <a href="{{ url_for('main.logout') }}">Logout</a>
+    <a href="{{ url_for('main.logout') }}" class="sidenav-link" data-label="Logout">
+      <span class="sidenav-icon">🚪</span>
+      <span class="sidenav-label">Logout</span>
+    </a>
   </div>
   <div class="main-content">
     {% block content %}{% endblock %}
