@@ -21,6 +21,15 @@
       <p>{{ user_count }}</p>
     </div>
     {% endif %}
+    <div class="widget">
+      <h3>Top Requestor</h3>
+      <p>{{ top_requestor.name if top_requestor else '-' }}</p>
+      <small>Tickets: {{ top_requestor.count if top_requestor else '0' }}</small>
+    </div>
+  </div>
+  <div class="dashboard-chart-section">
+    <h2>Ticket Trends (Last {{ months_to_show }} Months)</h2>
+    <canvas id="ticketsBarChart" width="600" height="300"></canvas>
   </div>
   <div class="ticket-list-section">
     <h2>Tickets</h2>
@@ -64,4 +73,39 @@
   </div>
   {% endif %}
 </div>
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const months = {{ ticket_stats_by_month.months|tojson|safe }};
+  const openData = {{ ticket_stats_by_month.open|tojson|safe }};
+  const closedData = {{ ticket_stats_by_month.closed|tojson|safe }};
+  new Chart(document.getElementById('ticketsBarChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Open Tickets',
+          data: openData,
+          backgroundColor: 'rgba(54, 162, 235, 0.7)'
+        },
+        {
+          label: 'Closed Tickets',
+          data: closedData,
+          backgroundColor: 'rgba(75, 192, 192, 0.7)'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' },
+        title: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+</script>
 {% endblock %}
