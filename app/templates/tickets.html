@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set month_names = ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
+<div class="tickets-container">
+  <h1>Ticket Table for {{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}</h1>
+  <div class="tickets-stats">
+    <span>Tickets Raised in {{ month_names[month[5:7]|int - 1] }}: {{ tickets_raised }}</span>
+    <span>Most Common Category: {{ most_common_category }}</span>
+    <span>Most Common Requestor: {{ most_common_requestor }}</span>
+  </div>
+  <form method="get" class="tickets-filters">
+    <label>Month:
+      <select name="month">
+        {% for m in all_months %}
+        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Status:
+      <select name="status">
+        {% for s in all_statuses %}
+        <option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Category:
+      <select name="category">
+        <option value="All">All</option>
+        {% for c in all_categories %}
+        <option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Filter</button>
+  </form>
+  <table class="ticket-table">
+    <thead>
+      <tr>
+        <th>S/N</th>
+        <th>Issue Reported Date</th>
+        <th>Category</th>
+        <th>Ticket Name</th>
+        <th>Request by</th>
+        <th>Resolution</th>
+        <th>Assignee</th>
+        <th>Urgency</th>
+        <th>Date of Completion</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ticket in tickets %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td>
+        <td>{{ ticket.category or '-' }}</td>
+        <td><a href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
+        <td>{{ ticket.sender or '-' }}</td>
+        <td>{% if ticket.status == 'Closed' %}{{ ticket.resolution or '-' }}{% else %}-{% endif %}</td>
+        <td>{% if ticket.status == 'Closed' %}{{ ticket.assigned_to or '-' }}{% else %}-{% endif %}</td>
+        <td>{{ ticket.urgency or '-' }}</td>
+        <td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+<style>
+.tickets-container { max-width: 1100px; margin: 40px auto; padding: 2rem; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+.tickets-stats { display: flex; gap: 2rem; margin-bottom: 1.5rem; font-weight: 500; }
+.tickets-filters { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; align-items: center; }
+.tickets-filters label { font-weight: 500; }
+.tickets-filters select, .tickets-filters button { margin-left: 0.5rem; padding: 0.3rem 0.7rem; border-radius: 4px; border: 1px solid #d1d5db; }
+.tickets-filters button { background: #4f8cff; color: #fff; border: none; cursor: pointer; font-weight: 600; }
+.tickets-filters button:hover { background: #2563eb; }
+.ticket-table th, .ticket-table td { font-size: 0.98rem; }
+.ticket-table th { white-space: nowrap; }
+.ticket-table td a { color: #4f8cff; text-decoration: underline; }
+</style>

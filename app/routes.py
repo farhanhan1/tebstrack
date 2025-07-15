@@ -95,3 +95,59 @@ def profile():
 def test_session():
     session['test'] = 'hello'
     return f"Session set to: {session['test']}"
+
+@main.route('/tickets')
+@login_required
+def tickets():
+    # Filters
+    month = request.args.get('month')
+    status = request.args.get('status', 'Open')
+    category = request.args.get('category')
+    # Default to current month
+    import datetime
+    now = datetime.datetime.now()
+    if not month:
+        month = now.strftime('%Y-%m')
+    month_start = datetime.datetime.strptime(month, '%Y-%m')
+    next_month = (month_start + datetime.timedelta(days=32)).replace(day=1)
+
+    # Query tickets
+    query = Ticket.query.filter(Ticket.created_at >= month_start, Ticket.created_at < next_month)
+    if status and status != 'All':
+        query = query.filter(Ticket.status == status)
+    if category and category != 'All':
+        query = query.filter(Ticket.category == category)
+    tickets = query.order_by(Ticket.created_at.desc()).all()
+
+    # Key stats
+    tickets_raised = len(tickets)
+    from collections import Counter
+    most_common_category = Counter([t.category for t in tickets if t.category]).most_common(1)
+    most_common_category = most_common_category[0][0] if most_common_category else '-'
+    most_common_requestor = Counter([t.sender for t in tickets if t.sender]).most_common(1)
+    most_common_requestor = most_common_requestor[0][0] if most_common_requestor else '-'
+
+    # For dropdowns
+    all_months = [d.strftime('%Y-%m') for d in Ticket.query.with_entities(Ticket.created_at).distinct()]
+    all_categories = sorted(set([t.category for t in Ticket.query if t.category]))
+    all_statuses = ['Open', 'Closed', 'All']
+
+    return render_template('tickets.html',
+        tickets=tickets,
+        month=month,
+        status=status,
+        category=category,
+        all_months=all_months,
+        all_categories=all_categories,
+        all_statuses=all_statuses,
+        tickets_raised=tickets_raised,
+        most_common_category=most_common_category,
+        most_common_requestor=most_common_requestor
+    )
+
+@main.route('/viewticket/<int:ticket_id>')
+@login_required
+def view_ticket(ticket_id):
+    ticket = Ticket.query.get_or_404(ticket_id)
+    # For now, just show all fields and a placeholder for email thread
+    return render_template('viewticket.html', ticket=ticket)

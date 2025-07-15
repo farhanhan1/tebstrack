@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="ticket-detail-container">
+  <h1>Ticket Details</h1>
+  <table class="ticket-detail-table">
+    <tr><th>S/N</th><td>{{ ticket.id }}</td></tr>
+    <tr><th>Issue Reported Date</th><td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td></tr>
+    <tr><th>Category</th><td>{{ ticket.category or '-' }}</td></tr>
+    <tr><th>Ticket Name</th><td>{{ ticket.subject }}</td></tr>
+    <tr><th>Request by</th><td>{{ ticket.sender or '-' }}</td></tr>
+    <tr><th>Resolution</th><td>{% if ticket.status == 'Closed' %}{{ ticket.resolution or '-' }}{% else %}-{% endif %}</td></tr>
+    <tr><th>Assignee</th><td>{% if ticket.status == 'Closed' %}{{ ticket.assigned_to or '-' }}{% else %}-{% endif %}</td></tr>
+    <tr><th>Urgency</th><td>{{ ticket.urgency or '-' }}</td></tr>
+    <tr><th>Date of Completion</th><td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td></tr>
+  </table>
+  <div class="ticket-thread">
+    <h2>Email Thread</h2>
+    <div class="thread-placeholder">(Email thread display coming soon)</div>
+  </div>
+</div>
+{% endblock %}
+<style>
+.ticket-detail-container { max-width: 700px; margin: 40px auto; padding: 2rem; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+.ticket-detail-table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+.ticket-detail-table th { text-align: left; width: 200px; background: #f4f6fb; padding: 0.7rem; }
+.ticket-detail-table td { padding: 0.7rem; }
+.ticket-thread h2 { margin-top: 0; }
+.thread-placeholder { color: #888; font-style: italic; background: #f4f6fb; padding: 1rem; border-radius: 8px; }
+</style>
