@@ -6,3 +6,4 @@ bcrypt
 openai
 python-dotenv
 app
+flask-migrate

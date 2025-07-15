@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="profile-container">
+  <div class="profile-header">
+    <div class="profile-avatar">
+      {{ current_user.username[0]|upper if current_user.username else '?' }}
+    </div>
+    <div class="profile-info">
+      <h2>{{ current_user.username }}</h2>
+      <span class="profile-role">{{ current_user.role|capitalize }}</span>
+    </div>
+  </div>
+  <div class="profile-details">
+    <div class="profile-row">
+      <span class="profile-label">Username</span>
+      <span class="profile-value">{{ current_user.username }}</span>
+    </div>
+    <div class="profile-row">
+      <span class="profile-label">Role</span>
+      <span class="profile-value">{{ current_user.role|capitalize }}</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+<style>
+body {
+  background: linear-gradient(120deg, #e0e7ff 0%, #f4f6fb 100%);
+}
+.profile-container {
+  max-width: 420px;
+  margin: 3.5rem auto 0 auto;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(79,140,255,0.10), 0 1.5px 8px rgba(0,0,0,0.04);
+  padding: 2.7rem 2.7rem 2.2rem 2.7rem;
+  position: relative;
+  overflow: hidden;
+}
+.profile-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2.2rem;
+  position: relative;
+}
+.profile-avatar {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f8cff 60%, #e0e7ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: #fff;
+  font-weight: 700;
+  margin-right: 1.7rem;
+  box-shadow: 0 2px 12px rgba(79,140,255,0.18);
+  border: 3px solid #fff;
+}
+.profile-info h2 {
+  margin: 0 0 0.3rem 0;
+  font-size: 1.7rem;
+  color: #2d3a4b;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.profile-role {
+  background: #4f8cff;
+  color: #fff;
+  font-size: 1.05rem;
+  padding: 0.22rem 1.1rem;
+  border-radius: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  box-shadow: 0 1px 4px rgba(79,140,255,0.10);
+}
+.profile-details {
+  margin-top: 1.7rem;
+  background: #f4f6fb;
+  border-radius: 12px;
+  padding: 1.2rem 1.3rem;
+  box-shadow: 0 1px 4px rgba(79,140,255,0.04);
+}
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid #e0e7ff;
+}
+.profile-row:last-child {
+  border-bottom: none;
+}
+.profile-label {
+  color: #4a5568;
+  font-weight: 600;
+  font-size: 1.08rem;
+  letter-spacing: 0.2px;
+}
+.profile-value {
+  color: #2d3a4b;
+  font-size: 1.08rem;
+  font-weight: 500;
+}
+</style>

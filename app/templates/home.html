@@ -1,5 +1,67 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Welcome to TeBSTrack</h1>
-<a href="{{ url_for('main.logout') }}">Logout</a>
+<div class="dashboard-container">
+  <h1>Welcome to TeBSTrack</h1>
+  <div class="dashboard-widgets">
+    <div class="widget">
+      <h3>Open Tickets</h3>
+      <p>{{ open_count }}</p>
+    </div>
+    <div class="widget">
+      <h3>Urgent Tickets</h3>
+      <p>{{ urgent_count }}</p>
+    </div>
+    <div class="widget">
+      <h3>Closed Tickets</h3>
+      <p>{{ closed_count }}</p>
+    </div>
+    {% if current_user.role == 'admin' %}
+    <div class="widget">
+      <h3>Users</h3>
+      <p>{{ user_count }}</p>
+    </div>
+    {% endif %}
+  </div>
+  <div class="ticket-list-section">
+    <h2>Tickets</h2>
+    <table class="ticket-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Subject</th>
+          <th>Category</th>
+          <th>Urgency</th>
+          <th>Status</th>
+          <th>Assigned To</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ticket in tickets %}
+        <tr>
+          <td>{{ ticket.id }}</td>
+          <td>{{ ticket.subject }}</td>
+          <td>{{ ticket.category }}</td>
+          <td>{{ ticket.urgency }}</td>
+          <td>{{ ticket.status }}</td>
+          <td>{{ ticket.assigned_to or '-' }}</td>
+          <td>
+            <a href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">View</a>
+            {% if current_user.role == 'admin' %}
+            | <a href="{{ url_for('main.edit_ticket', ticket_id=ticket.id) }}">Edit</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if current_user.role == 'admin' %}
+  <div class="admin-section">
+    <h2>Admin Console</h2>
+    <a href="{{ url_for('main.manage_users') }}">Manage Users</a> |
+    <a href="{{ url_for('main.audit_logs') }}">View Audit Logs</a>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}
