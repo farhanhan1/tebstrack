@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="ticket-detail-container">
-  <h1>Ticket Details</h1>
+  <h1 class="ticket-detail-title">Ticket Details</h1>
   <table class="ticket-detail-table">
     <tr><th>S/N</th><td>{{ ticket.id }}</td></tr>
     <tr><th>Issue Reported Date</th><td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td></tr>
-    <tr><th>Category</th><td>{{ ticket.category or '-' }}</td></tr>
-    <tr><th>Ticket Name</th><td>{{ ticket.subject }}</td></tr>
-    <tr><th>Request by</th><td>{{ ticket.sender or '-' }}</td></tr>
-    <tr><th>Resolution</th><td>{% if ticket.status == 'Closed' %}{{ ticket.resolution or '-' }}{% else %}-{% endif %}</td></tr>
-    <tr><th>Assignee</th><td>{% if ticket.status == 'Closed' %}{{ ticket.assigned_to or '-' }}{% else %}-{% endif %}</td></tr>
-    <tr><th>Urgency</th><td>{{ ticket.urgency or '-' }}</td></tr>
+    <tr><th>Category</th><td><span class="badge badge-category">{{ ticket.category or '-' }}</span></td></tr>
+    <tr><th>Ticket Name</th><td><span class="ticket-subject">{{ ticket.subject }}</span></td></tr>
+    <tr><th>Request by</th><td><span class="badge badge-requestor">{{ ticket.sender or '-' }}</span></td></tr>
+    <tr><th>Resolution</th><td>{% if ticket.status == 'Closed' %}<span class="badge badge-resolution">{{ ticket.resolution or '-' }}</span>{% else %}-{% endif %}</td></tr>
+    <tr><th>Assignee</th><td>{% if ticket.status == 'Closed' %}<span class="badge badge-assignee">{{ ticket.assigned_to or '-' }}</span>{% else %}-{% endif %}</td></tr>
+    <tr><th>Urgency</th><td><span class="badge badge-urgency badge-urgency-{{ ticket.urgency|lower }}">{{ ticket.urgency or '-' }}</span></td></tr>
     <tr><th>Date of Completion</th><td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td></tr>
   </table>
   <div class="ticket-thread">
@@ -20,10 +20,82 @@
 </div>
 {% endblock %}
 <style>
-.ticket-detail-container { max-width: 700px; margin: 40px auto; padding: 2rem; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-.ticket-detail-table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
-.ticket-detail-table th { text-align: left; width: 200px; background: #f4f6fb; padding: 0.7rem; }
-.ticket-detail-table td { padding: 0.7rem; }
-.ticket-thread h2 { margin-top: 0; }
-.thread-placeholder { color: #888; font-style: italic; background: #f4f6fb; padding: 1rem; border-radius: 8px; }
+.ticket-detail-container {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 2.5rem 2rem 2rem 2rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(79,140,255,0.10), 0 1.5px 8px rgba(0,0,0,0.04);
+}
+.ticket-detail-title {
+  color: #4f8cff;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  letter-spacing: 1px;
+  text-align: left;
+}
+.ticket-detail-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0.5rem;
+  margin-bottom: 2.5rem;
+}
+.ticket-detail-table th {
+  text-align: left;
+  width: 220px;
+  background: #f4f6fb;
+  padding: 0.9rem 1rem;
+  border-radius: 8px 0 0 8px;
+  color: #4f8cff;
+  font-weight: 600;
+  font-size: 1.08rem;
+}
+.ticket-detail-table td {
+  padding: 0.9rem 1rem;
+  background: #f9fafb;
+  border-radius: 0 8px 8px 0;
+  font-size: 1.08rem;
+  color: #2d3a4b;
+}
+.ticket-subject {
+  font-weight: 600;
+  color: #2563eb;
+  font-size: 1.1rem;
+}
+.badge {
+  display: inline-block;
+  padding: 0.22em 0.85em;
+  border-radius: 12px;
+  font-size: 0.98em;
+  font-weight: 600;
+  background: #e0e7ff;
+  color: #4f8cff;
+  margin-right: 0.3em;
+}
+.badge-category { background: #e0e7ff; color: #4f8cff; }
+.badge-requestor { background: #f4f6fb; color: #2d3a4b; }
+.badge-resolution { background: #d1fae5; color: #059669; }
+.badge-assignee { background: #fef3c7; color: #b45309; }
+.badge-urgency-high { background: #fee2e2; color: #dc2626; }
+.badge-urgency-medium { background: #fef9c3; color: #ca8a04; }
+.badge-urgency-low { background: #d1fae5; color: #059669; }
+.badge-urgency-urgent { background: #f87171; color: #fff; }
+.ticket-thread h2 {
+  margin-top: 0;
+  color: #4f8cff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+}
+.thread-placeholder {
+  color: #888;
+  font-style: italic;
+  background: #f4f6fb;
+  padding: 1.2rem;
+  border-radius: 8px;
+  border: 1px dashed #b6c6e6;
+  text-align: center;
+}
 </style>

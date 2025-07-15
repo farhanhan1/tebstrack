@@ -2,18 +2,22 @@
 {% block content %}
 {% set month_names = ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
 <div class="tickets-container">
-  <h1>Ticket Table for {{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}</h1>
+  <h1 class="tickets-title">Ticket Table for {{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}</h1>
   <div class="tickets-stats">
-    <span>Tickets Raised in {{ month_names[month[5:7]|int - 1] }}: {{ tickets_raised }}</span>
-    <span>Most Common Category: {{ most_common_category }}</span>
-    <span>Most Common Requestor: {{ most_common_requestor }}</span>
+    <span><span class="stat-label">Tickets Raised in {{ month_names[month[5:7]|int - 1] }}:</span> <span class="stat-value">{{ tickets_raised }}</span></span>
+    <span><span class="stat-label">Most Common Category:</span> <span class="stat-value">{{ most_common_category }}</span></span>
+    <span><span class="stat-label">Most Common Requestor:</span> <span class="stat-value">{{ most_common_requestor }}</span></span>
   </div>
   <form method="get" class="tickets-filters">
     <label>Month:
       <select name="month">
+        {% if all_months|length == 0 %}
+        <option value="{{ month }}">{{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}</option>
+        {% else %}
         {% for m in all_months %}
-        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>
+        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ month_names[m[5:7]|int - 1] }} {{ m[:4] }}</option>
         {% endfor %}
+        {% endif %}
       </select>
     </label>
     <label>Status:
@@ -33,47 +37,160 @@
     </label>
     <button type="submit">Filter</button>
   </form>
-  <table class="ticket-table">
-    <thead>
-      <tr>
-        <th>S/N</th>
-        <th>Issue Reported Date</th>
-        <th>Category</th>
-        <th>Ticket Name</th>
-        <th>Request by</th>
-        <th>Resolution</th>
-        <th>Assignee</th>
-        <th>Urgency</th>
-        <th>Date of Completion</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for ticket in tickets %}
-      <tr>
-        <td>{{ loop.index }}</td>
-        <td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td>
-        <td>{{ ticket.category or '-' }}</td>
-        <td><a href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
-        <td>{{ ticket.sender or '-' }}</td>
-        <td>{% if ticket.status == 'Closed' %}{{ ticket.resolution or '-' }}{% else %}-{% endif %}</td>
-        <td>{% if ticket.status == 'Closed' %}{{ ticket.assigned_to or '-' }}{% else %}-{% endif %}</td>
-        <td>{{ ticket.urgency or '-' }}</td>
-        <td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="tickets-table-wrapper">
+    <table class="ticket-table">
+      <thead>
+        <tr>
+          <th>S/N</th>
+          <th>Issue Reported Date</th>
+          <th>Category</th>
+          <th>Ticket Name</th>
+          <th>Request by</th>
+          <th>Resolution</th>
+          <th>Assignee</th>
+          <th>Urgency</th>
+          <th>Date of Completion</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ticket in tickets %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td>
+          <td><span class="badge badge-category">{{ ticket.category or '-' }}</span></td>
+          <td><a class="ticket-link" href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
+          <td><span class="badge badge-requestor">{{ ticket.sender or '-' }}</span></td>
+          <td>{% if ticket.status == 'Closed' %}<span class="badge badge-resolution">{{ ticket.resolution or '-' }}</span>{% else %}-{% endif %}</td>
+          <td>{% if ticket.status == 'Closed' %}<span class="badge badge-assignee">{{ ticket.assigned_to or '-' }}</span>{% else %}-{% endif %}</td>
+          <td><span class="badge badge-urgency badge-urgency-{{ ticket.urgency|lower }}">{{ ticket.urgency or '-' }}</span></td>
+          <td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
 <style>
-.tickets-container { max-width: 1100px; margin: 40px auto; padding: 2rem; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-.tickets-stats { display: flex; gap: 2rem; margin-bottom: 1.5rem; font-weight: 500; }
-.tickets-filters { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; align-items: center; }
-.tickets-filters label { font-weight: 500; }
-.tickets-filters select, .tickets-filters button { margin-left: 0.5rem; padding: 0.3rem 0.7rem; border-radius: 4px; border: 1px solid #d1d5db; }
-.tickets-filters button { background: #4f8cff; color: #fff; border: none; cursor: pointer; font-weight: 600; }
-.tickets-filters button:hover { background: #2563eb; }
-.ticket-table th, .ticket-table td { font-size: 0.98rem; }
-.ticket-table th { white-space: nowrap; }
-.ticket-table td a { color: #4f8cff; text-decoration: underline; }
+.tickets-container {
+  max-width: 1150px;
+  margin: 40px auto;
+  padding: 2.5rem 2rem 2rem 2rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(79,140,255,0.10), 0 1.5px 8px rgba(0,0,0,0.04);
+}
+.tickets-title {
+  color: #4f8cff;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  letter-spacing: 1px;
+  text-align: left;
+}
+.tickets-stats {
+  display: flex;
+  gap: 2.5rem;
+  margin-bottom: 1.7rem;
+  font-weight: 500;
+  color: #2d3a4b;
+  flex-wrap: wrap;
+}
+.tickets-stats .stat-label {
+  color: #4f8cff;
+  font-weight: 600;
+  margin-right: 0.3em;
+}
+.tickets-stats .stat-value {
+  color: #2563eb;
+  font-weight: 700;
+}
+.tickets-filters {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.7rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tickets-filters label {
+  font-weight: 500;
+  color: #4f8cff;
+}
+.tickets-filters select, .tickets-filters button {
+  margin-left: 0.5rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+  background: #f9fafb;
+  color: #2d3a4b;
+}
+.tickets-filters button {
+  background: #4f8cff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.tickets-filters button:hover {
+  background: #2563eb;
+}
+.tickets-table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  background: #fff;
+}
+.ticket-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0.5rem;
+  background: #fff;
+}
+.ticket-table th {
+  background: #f4f6fb;
+  color: #4f8cff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  border-radius: 8px 8px 0 0;
+  white-space: nowrap;
+}
+.ticket-table td {
+  padding: 0.9rem 1rem;
+  background: #f9fafb;
+  border-radius: 0 0 8px 8px;
+  font-size: 1.02rem;
+  color: #2d3a4b;
+  vertical-align: middle;
+}
+.ticket-link {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+.ticket-link:hover {
+  color: #4f8cff;
+}
+.badge {
+  display: inline-block;
+  padding: 0.22em 0.85em;
+  border-radius: 12px;
+  font-size: 0.98em;
+  font-weight: 600;
+  background: #e0e7ff;
+  color: #4f8cff;
+  margin-right: 0.3em;
+}
+.badge-category { background: #e0e7ff; color: #4f8cff; }
+.badge-requestor { background: #f4f6fb; color: #2d3a4b; }
+.badge-resolution { background: #d1fae5; color: #059669; }
+.badge-assignee { background: #fef3c7; color: #b45309; }
+.badge-urgency-high { background: #fee2e2; color: #dc2626; }
+.badge-urgency-medium { background: #fef9c3; color: #ca8a04; }
+.badge-urgency-low { background: #d1fae5; color: #059669; }
+.badge-urgency-urgent { background: #f87171; color: #fff; }
 </style>
