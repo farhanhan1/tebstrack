@@ -9,6 +9,64 @@ from .fetch_emails_util import fetch_and_store_emails
 
 main = Blueprint('main', __name__)
 
+# Admin: Manage Users page
+@main.route('/manage_users', methods=['GET'])
+@login_required
+def manage_users():
+    if current_user.role != 'admin':
+        return redirect(url_for('main.index'))
+    users = User.query.order_by(User.username).all()
+    return render_template('manage_users.html', users=users)
+
+# Admin: Create User endpoint
+@main.route('/create_user', methods=['POST'])
+@login_required
+def create_user():
+    if current_user.role != 'admin':
+        return redirect(url_for('main.index'))
+    username = request.form.get('username')
+    password = request.form.get('password')
+    role = request.form.get('role')
+    if not username or not password or not role:
+        flash('All fields are required.', 'error')
+        return redirect(url_for('main.manage_users'))
+    if User.query.filter_by(username=username).first():
+        flash('Username already exists.', 'error')
+        return redirect(url_for('main.manage_users'))
+    new_user = User(
+        username=username,
+        password=generate_password_hash(password),
+        role=role
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    flash(f"User '{username}' created.", 'success')
+    return redirect(url_for('main.manage_users'))
+
+# Admin: Delete User endpoint
+@main.route('/delete_user/<username>', methods=['POST'])
+@login_required
+def delete_user(username):
+    if current_user.role != 'admin':
+        return redirect(url_for('main.index'))
+    user = User.query.filter_by(username=username).first()
+    if not user or user.username == 'admin':
+        flash('Cannot delete this user.', 'error')
+        return redirect(url_for('main.manage_users'))
+    db.session.delete(user)
+    db.session.commit()
+    flash(f"User '{username}' deleted.", 'success')
+    return redirect(url_for('main.manage_users'))
+
+# Admin: Audit Logs page
+@main.route('/audit_logs', methods=['GET'])
+@login_required
+def audit_logs():
+    if current_user.role != 'admin':
+        return redirect(url_for('main.index'))
+    logs = []  # Replace with actual log query if available
+    return render_template('audit_logs.html', logs=logs)
+
 # Create Ticket endpoint (must be after Blueprint definition)
 @main.route('/create_ticket', methods=['POST'])
 @login_required
@@ -213,3 +271,21 @@ def view_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
     # For now, just show all fields and a placeholder for email thread
     return render_template('viewticket.html', ticket=ticket)
+
+# Admin: Edit Ticket page
+@main.route('/edit_ticket/<int:ticket_id>', methods=['GET', 'POST'])
+@login_required
+def edit_ticket(ticket_id):
+    ticket = Ticket.query.get_or_404(ticket_id)
+    if current_user.role != 'admin':
+        return redirect(url_for('main.index'))
+    if request.method == 'POST':
+        ticket.subject = request.form.get('subject', ticket.subject)
+        ticket.category = request.form.get('category', ticket.category)
+        ticket.urgency = request.form.get('urgency', ticket.urgency)
+        ticket.status = request.form.get('status', ticket.status)
+        ticket.description = request.form.get('description', ticket.description)
+        ticket.assigned_to = request.form.get('assigned_to', ticket.assigned_to)
+        db.session.commit()
+        return redirect(url_for('main.tickets'))
+    return render_template('edit_ticket.html', ticket=ticket)

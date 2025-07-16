@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-container">
+  <h1 style="color:#2563eb;">Manage Users</h1>
+  <div class="admin-section" style="margin-top:2rem;">
+    <form method="post" action="{{ url_for('main.create_user') }}" style="margin-bottom:2rem;">
+      <label style="font-weight:600; color:#4f8cff;">Username:</label>
+      <input type="text" name="username" required style="margin-right:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+      <label style="font-weight:600; color:#4f8cff;">Password:</label>
+      <input type="password" name="password" required style="margin-right:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+      <label style="font-weight:600; color:#4f8cff;">Role:</label>
+      <select name="role" required style="margin-right:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+        <option value="admin">Admin</option>
+        <option value="infra">Infra</option>
+        <option value="user">User</option>
+      </select>
+      <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700;">Create User</button>
+    </form>
+    <table class="ticket-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td>{{ user.username }}</td>
+          <td>{{ user.role }}</td>
+          <td>
+            {% if user.username != 'admin' %}
+            <form method="post" action="{{ url_for('main.delete_user', username=user.username) }}" style="display:inline;">
+              <button type="submit" style="background:#dc2626; color:#fff; border:none; border-radius:6px; padding:0.3rem 0.8rem; font-weight:600; cursor:pointer;">Delete</button>
+            </form>
+            {% else %}
+            <span style="color:#b45309;">Protected</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if users|length == 0 %}
+    <p style="color:#b45309; margin-top:1.5rem;">No users found.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

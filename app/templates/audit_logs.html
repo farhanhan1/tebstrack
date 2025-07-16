@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-container">
+  <h1 style="color:#2563eb;">Audit Logs</h1>
+  <div class="admin-section" style="margin-top:2rem;">
+    <table class="ticket-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.timestamp }}</td>
+          <td>{{ log.user }}</td>
+          <td>{{ log.action }}</td>
+          <td>{{ log.details }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if logs|length == 0 %}
+    <p style="color:#b45309; margin-top:1.5rem;">No logs found.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -508,13 +508,13 @@
       <span class="sidenav-label">Tickets</span>
     </a>
     {% if current_user.role == 'admin' %}
-    <a href="{{ url_for('main.manage_users') }}" class="sidenav-link{% if request.endpoint == 'main.manage_users' %} active{% endif %}" data-label="Manage Users">
+    <a href="{{ url_for('main.manage_users') }}" class="sidenav-link{% if request.endpoint == 'main.manage_users' %} active{% endif %}" data-label="Users">
       <span class="sidenav-icon">👥</span>
-      <span class="sidenav-label">Manage Users</span>
+      <span class="sidenav-label">Users</span>
     </a>
-    <a href="{{ url_for('main.audit_logs') }}" class="sidenav-link{% if request.endpoint == 'main.audit_logs' %} active{% endif %}" data-label="Audit Logs">
+    <a href="{{ url_for('main.audit_logs') }}" class="sidenav-link{% if request.endpoint == 'main.audit_logs' %} active{% endif %}" data-label="Logs">
       <span class="sidenav-icon">📜</span>
-      <span class="sidenav-label">Audit Logs</span>
+      <span class="sidenav-label">Logs</span>
     </a>
     {% endif %}
     <a href="{{ url_for('main.logout') }}" class="sidenav-link{% if request.endpoint == 'main.logout' %} active{% endif %}" data-label="Logout">
