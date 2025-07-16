@@ -8,7 +8,7 @@
     <span><span class="stat-label">Most Common Category:</span> <span class="stat-value">{{ most_common_category }}</span></span>
     <span><span class="stat-label">Most Common Requestor:</span> <span class="stat-value">{{ most_common_requestor }}</span></span>
   </div>
-  <form method="get" class="tickets-filters">
+  <form method="get" class="tickets-filters" style="margin-bottom:0;">
     <label>Month:
       <select name="month">
         {% if all_months|length == 0 %}
@@ -36,7 +36,35 @@
       </select>
     </label>
     <button type="submit">Filter</button>
+    <button type="button" id="refresh-emails-btn" style="margin-left:1rem;background:#059669;">Refresh</button>
   </form>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('refresh-emails-btn');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          btn.disabled = true;
+          btn.textContent = 'Refreshing...';
+          fetch('{{ url_for('main.fetch_emails') }}', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+              btn.textContent = 'Refresh';
+              btn.disabled = false;
+              if (data.success) {
+                window.location.reload();
+              } else {
+                alert('Error: ' + (data.error || 'Could not fetch emails.'));
+              }
+            })
+            .catch(() => {
+              btn.textContent = 'Refresh';
+              btn.disabled = false;
+              alert('Error: Could not fetch emails.');
+            });
+        });
+      }
+    });
+  </script>
   <div class="tickets-table-wrapper">
     <table class="ticket-table">
       <thead>

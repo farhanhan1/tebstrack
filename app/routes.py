@@ -1,12 +1,23 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify
 from flask_login import login_user, login_required, logout_user, current_user
 from .models import User, Ticket, db
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from sqlalchemy import func
 import datetime
+from .fetch_emails_util import fetch_and_store_emails
 
 main = Blueprint('main', __name__)
+
+# Fetch emails endpoint (must be after main is defined)
+@main.route('/fetch_emails', methods=['POST'])
+@login_required
+def fetch_emails():
+    try:
+        count = fetch_and_store_emails()
+        return jsonify({'success': True, 'new_tickets': count})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @main.before_app_request
 def require_login():
@@ -128,7 +139,9 @@ def tickets():
     most_common_requestor = most_common_requestor[0][0] if most_common_requestor else '-'
 
     # For dropdowns
-    all_months = [d.strftime('%Y-%m') for d in Ticket.query.with_entities(Ticket.created_at).distinct()]
+    # Get all months for dropdown (YYYY-MM format) from tickets in DB
+    from sqlalchemy import func
+    all_months = [m[0] for m in db.session.query(func.strftime('%Y-%m', Ticket.created_at)).distinct().order_by(func.strftime('%Y-%m', Ticket.created_at).desc()).all()]
     all_categories = sorted(set([t.category for t in Ticket.query if t.category]))
     all_statuses = ['Open', 'Closed', 'All']
 
