@@ -132,6 +132,11 @@
       color: #fff;
       border-left: 4px solid #fff;
     }
+    .sidenav-link.active {
+      background: #e0e7ff;
+      color: #2563eb;
+      border-left: 4px solid #2563eb;
+    }
     .sidenav-icon {
       font-size: 1.4rem;
       margin-right: 1.1rem;
@@ -490,29 +495,29 @@
       <span></span>
       <span></span>
     </div>
-    <a href="{{ url_for('main.index') }}" class="sidenav-link" data-label="Dashboard">
+    <a href="{{ url_for('main.index') }}" class="sidenav-link{% if request.endpoint == 'main.index' %} active{% endif %}" data-label="Dashboard">
       <span class="sidenav-icon">🏠</span>
       <span class="sidenav-label">Dashboard</span>
     </a>
-    <a href="{{ url_for('main.profile') }}" class="sidenav-link" data-label="Profile">
+    <a href="{{ url_for('main.profile') }}" class="sidenav-link{% if request.endpoint == 'main.profile' %} active{% endif %}" data-label="Profile">
       <span class="sidenav-icon">👤</span>
       <span class="sidenav-label">Profile</span>
     </a>
-    <a href="{{ url_for('main.tickets') }}" class="sidenav-link" data-label="Tickets">
+    <a href="{{ url_for('main.tickets') }}" class="sidenav-link{% if request.endpoint == 'main.tickets' %} active{% endif %}" data-label="Tickets">
       <span class="sidenav-icon">🎫</span>
       <span class="sidenav-label">Tickets</span>
     </a>
     {% if current_user.role == 'admin' %}
-    <a href="{{ url_for('main.manage_users') }}" class="sidenav-link" data-label="Manage Users">
+    <a href="{{ url_for('main.manage_users') }}" class="sidenav-link{% if request.endpoint == 'main.manage_users' %} active{% endif %}" data-label="Manage Users">
       <span class="sidenav-icon">👥</span>
       <span class="sidenav-label">Manage Users</span>
     </a>
-    <a href="{{ url_for('main.audit_logs') }}" class="sidenav-link" data-label="Audit Logs">
+    <a href="{{ url_for('main.audit_logs') }}" class="sidenav-link{% if request.endpoint == 'main.audit_logs' %} active{% endif %}" data-label="Audit Logs">
       <span class="sidenav-icon">📜</span>
       <span class="sidenav-label">Audit Logs</span>
     </a>
     {% endif %}
-    <a href="{{ url_for('main.logout') }}" class="sidenav-link" data-label="Logout">
+    <a href="{{ url_for('main.logout') }}" class="sidenav-link{% if request.endpoint == 'main.logout' %} active{% endif %}" data-label="Logout">
       <span class="sidenav-icon">🚪</span>
       <span class="sidenav-label">Logout</span>
     </a>
