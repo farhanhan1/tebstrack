@@ -1,5 +1,3 @@
-
-# Only import and define Blueprint ONCE at the top
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify
 from flask_login import login_user, login_required, logout_user, current_user
 from .models import User, Ticket, db
@@ -10,6 +8,35 @@ import datetime
 from .fetch_emails_util import fetch_and_store_emails
 
 main = Blueprint('main', __name__)
+
+# Create Ticket endpoint (must be after Blueprint definition)
+@main.route('/create_ticket', methods=['POST'])
+@login_required
+def create_ticket():
+    subject = request.form.get('subject')
+    category = request.form.get('category')
+    urgency = request.form.get('urgency')
+    description = request.form.get('description')
+    if not subject or not category or not urgency or not description:
+        return jsonify({'success': False, 'error': 'All fields are required.'})
+    try:
+        ticket = Ticket(
+            subject=subject,
+            category=category,
+            urgency=urgency,
+            description=description,
+            sender=current_user.username if hasattr(current_user, 'username') else 'Unknown',
+            status='Open',
+            created_at=datetime.datetime.now()
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+
 
 # Fetch emails endpoint (must be after main is defined)
 @main.route('/fetch_emails', methods=['POST'])

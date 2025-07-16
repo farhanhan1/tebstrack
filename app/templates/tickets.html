@@ -73,6 +73,7 @@
     <button type="submit" style="background: #4f8cff; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(79,140,255,0.08); transition: background 0.2s;">Filter</button>
     <button type="submit" form="delete-tickets-form" id="delete-tickets-btn-inline" style="background: #dc2626; color: #fff; border: none; border-radius: 6px; padding: 0.38rem 1.1rem; font-weight: 700; cursor: pointer; font-size: 1rem; margin-left:0.5rem; box-shadow: 0 1px 4px rgba(220,38,38,0.08); transition: background 0.2s;">Delete Selected</button>
     <button type="button" id="refresh-emails-btn" style="margin-left:0.5rem; background:#059669; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(16,185,129,0.08); transition: background 0.2s;">Refresh</button>
+    <button type="button" id="open-create-ticket-modal" class="create-ticket-btn" style="margin-left:0.5rem; background:#2563eb; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(37,99,235,0.08); text-decoration: none; display: inline-block; transition: background 0.2s;">Create</button>
   </form>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -102,6 +103,81 @@
     });
   </script>
   <div class="tickets-table-wrapper">
+  <!-- Create Ticket Modal -->
+  <div id="create-ticket-modal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100vw; height:100vh; overflow:auto; background:rgba(44,62,80,0.18); justify-content:center; align-items:center;">
+    <div class="modal-content" style="background:#fff; margin:5% auto; border-radius:16px; padding:2.2rem 2.5rem 2rem 2.5rem; max-width:420px; box-shadow:0 8px 32px rgba(79,140,255,0.18); position:relative;">
+      <span id="close-create-ticket-modal" style="position:absolute; top:18px; right:22px; font-size:1.7rem; color:#4f8cff; cursor:pointer; font-weight:700;">&times;</span>
+      <h2 style="color:#2563eb; font-size:1.45rem; font-weight:700; margin-bottom:1.2rem;">Create Ticket</h2>
+      <form id="create-ticket-form">
+        <div style="margin-bottom:1.1rem;">
+          <label style="font-weight:600; color:#4f8cff; display:block; margin-bottom:0.4rem;">Subject</label>
+          <input type="text" name="subject" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
+        </div>
+        <div style="margin-bottom:1.1rem;">
+          <label style="font-weight:600; color:#4f8cff; display:block; margin-bottom:0.4rem;">Category</label>
+          <input type="text" name="category" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
+        </div>
+        <div style="margin-bottom:1.1rem;">
+          <label style="font-weight:600; color:#4f8cff; display:block; margin-bottom:0.4rem;">Urgency</label>
+          <select name="urgency" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+        <div style="margin-bottom:1.1rem;">
+          <label style="font-weight:600; color:#4f8cff; display:block; margin-bottom:0.4rem;">Description</label>
+          <textarea name="description" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem; min-height:80px;"></textarea>
+        </div>
+        <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Submit</button>
+      </form>
+    </div>
+  </div>
+  <script>
+    // Modal open/close logic
+    document.addEventListener('DOMContentLoaded', function() {
+      var openBtn = document.getElementById('open-create-ticket-modal');
+      var modal = document.getElementById('create-ticket-modal');
+      var closeBtn = document.getElementById('close-create-ticket-modal');
+      if(openBtn && modal && closeBtn) {
+        openBtn.addEventListener('click', function() {
+          modal.style.display = 'flex';
+        });
+        closeBtn.addEventListener('click', function() {
+          modal.style.display = 'none';
+        });
+        window.addEventListener('click', function(event) {
+          if(event.target === modal) modal.style.display = 'none';
+        });
+      }
+      // AJAX submit for create ticket
+      var createForm = document.getElementById('create-ticket-form');
+      if(createForm) {
+        createForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          var formData = new FormData(createForm);
+          fetch("{{ url_for('main.create_ticket') }}", {
+            method: "POST",
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+          })
+          .then(r => r.json())
+          .then(data => {
+            if(data.success) {
+              modal.style.display = 'none';
+              window.location.reload();
+            } else {
+              alert('Error: ' + (data.error || 'Could not create ticket.'));
+            }
+          })
+          .catch(() => {
+            alert('Error: Could not create ticket.');
+          });
+        });
+      }
+    });
+  </script>
     <form id="delete-tickets-form" method="post" action="{{ url_for('main.delete_tickets') }}">
       <!-- Delete Selected button moved inline above -->
       <table class="ticket-table">
@@ -123,7 +199,7 @@
           {% for ticket in tickets %}
           <tr>
             <td><input type="checkbox" name="ticket_ids" value="{{ ticket.id }}"></td>
-            <td>{{ loop.index }}</td>
+            <td>{{ ticket.id }}</td>
             <td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td>
             <td><span class="badge badge-category">{{ ticket.category or '-' }}</span></td>
             <td><a class="ticket-link" href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
