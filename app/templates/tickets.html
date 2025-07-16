@@ -3,14 +3,49 @@
 {% set month_names = ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
 <div class="tickets-container">
   <h1 class="tickets-title">Ticket Table for {{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}</h1>
-  <div class="tickets-stats">
-    <span><span class="stat-label">Tickets Raised in {{ month_names[month[5:7]|int - 1] }}:</span> <span class="stat-value">{{ tickets_raised }}</span></span>
-    <span><span class="stat-label">Most Common Category:</span> <span class="stat-value">{{ most_common_category }}</span></span>
-    <span><span class="stat-label">Most Common Requestor:</span> <span class="stat-value">{{ most_common_requestor }}</span></span>
+  <div class="tickets-stats" style="display: flex; gap: 2.2rem; margin-bottom: 2.2rem; justify-content: center; align-items: stretch; flex-wrap: wrap; width: 100%;">
+    <div style="flex:1 1 0; min-width: 180px; max-width: 340px; background: linear-gradient(90deg, #e0e7ff 60%, #f4f6fb 100%); box-shadow: 0 2px 12px rgba(79,140,255,0.08); border-radius: 16px; padding: 1.3rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0 0.2rem; transition: font-size 0.2s;">
+      <span class="stat-label" style="color: #4f8cff; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">Tickets Raised in {{ month_names[month[5:7]|int - 1] }}</span>
+      <span class="stat-value" style="color: #2563eb; font-weight: 800; font-size: 2.1rem; letter-spacing: 1px; transition: font-size 0.2s;">{{ tickets_raised }}</span>
+    </div>
+    <div style="flex:1 1 0; min-width: 180px; max-width: 340px; background: linear-gradient(90deg, #fef3c7 60%, #f4f6fb 100%); box-shadow: 0 2px 12px rgba(255,193,7,0.08); border-radius: 16px; padding: 1.3rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0 0.2rem; transition: font-size 0.2s;">
+      <span class="stat-label" style="color: #b45309; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">Most Common Category</span>
+      <span class="stat-value" style="color: #b45309; font-weight: 800; font-size: 1.5rem; letter-spacing: 0.5px; transition: font-size 0.2s;">{{ most_common_category }}</span>
+    </div>
+    <div style="flex:1 1 0; min-width: 180px; max-width: 340px; background: linear-gradient(90deg, #d1fae5 60%, #f4f6fb 100%); box-shadow: 0 2px 12px rgba(16,185,129,0.08); border-radius: 16px; padding: 1.3rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0 0.2rem; transition: font-size 0.2s;">
+      <span class="stat-label" style="color: #059669; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">Most Common Requestor</span>
+      <span class="stat-value" style="color: #059669; font-weight: 800; font-size: 1.5rem; letter-spacing: 0.5px; transition: font-size 0.2s;">{{ most_common_requestor }}</span>
+    </div>
   </div>
-  <form method="get" class="tickets-filters" style="margin-bottom:0;">
-    <label>Month:
-      <select name="month">
+  <script>
+    // Responsive font size for tickets-stats cards
+    function adjustTicketStatsFont() {
+      var width = window.innerWidth;
+      var statCards = document.querySelectorAll('.tickets-stats > div');
+      statCards.forEach(function(card) {
+        var label = card.querySelector('.stat-label');
+        var value = card.querySelector('.stat-value');
+        if (width < 700) {
+          card.style.padding = '0.8rem 0.7rem';
+          if(label) label.style.fontSize = '0.92rem';
+          if(value) value.style.fontSize = '1.1rem';
+        } else if (width < 950) {
+          card.style.padding = '1rem 1rem';
+          if(label) label.style.fontSize = '1rem';
+          if(value) value.style.fontSize = '1.3rem';
+        } else {
+          card.style.padding = '1.3rem 1.5rem';
+          if(label) label.style.fontSize = '1.08rem';
+          if(value) value.style.fontSize = (card.querySelector('.stat-label').textContent.includes('Tickets Raised') ? '2.1rem' : '1.5rem');
+        }
+      });
+    }
+    window.addEventListener('resize', adjustTicketStatsFont);
+    document.addEventListener('DOMContentLoaded', adjustTicketStatsFont);
+  </script>
+  <form method="get" class="tickets-filters" style="margin-bottom:0; display: flex; gap: 1.1rem; align-items: center; flex-wrap: wrap; justify-content: center; width: 100%; background: #f4f6fb; border-radius: 12px; padding: 1rem 1.2rem 0.7rem 1.2rem; box-shadow: 0 1px 6px rgba(79,140,255,0.07);">
+    <label style="font-weight: 600; color: #4f8cff; margin-right: 0.3rem; display: flex; align-items: center;">Month:
+      <select name="month" style="margin-left: 0.5rem; padding: 0.35rem 0.9rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; font-weight: 500;">
         {% if all_months|length == 0 %}
         <option value="{{ month }}">{{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}</option>
         {% else %}
@@ -20,23 +55,24 @@
         {% endif %}
       </select>
     </label>
-    <label>Status:
-      <select name="status">
+    <label style="font-weight: 600; color: #4f8cff; margin-right: 0.3rem; display: flex; align-items: center;">Status:
+      <select name="status" style="margin-left: 0.5rem; padding: 0.35rem 0.9rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; font-weight: 500;">
         {% for s in all_statuses %}
         <option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s }}</option>
         {% endfor %}
       </select>
     </label>
-    <label>Category:
-      <select name="category">
+    <label style="font-weight: 600; color: #4f8cff; margin-right: 0.3rem; display: flex; align-items: center;">Category:
+      <select name="category" style="margin-left: 0.5rem; padding: 0.35rem 0.9rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; font-weight: 500;">
         <option value="All">All</option>
         {% for c in all_categories %}
         <option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>
         {% endfor %}
       </select>
     </label>
-    <button type="submit">Filter</button>
-    <button type="button" id="refresh-emails-btn" style="margin-left:1rem;background:#059669;">Refresh</button>
+    <button type="submit" style="background: #4f8cff; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(79,140,255,0.08); transition: background 0.2s;">Filter</button>
+    <button type="submit" form="delete-tickets-form" id="delete-tickets-btn-inline" style="background: #dc2626; color: #fff; border: none; border-radius: 6px; padding: 0.38rem 1.1rem; font-weight: 700; cursor: pointer; font-size: 1rem; margin-left:0.5rem; box-shadow: 0 1px 4px rgba(220,38,38,0.08); transition: background 0.2s;">Delete Selected</button>
+    <button type="button" id="refresh-emails-btn" style="margin-left:0.5rem; background:#059669; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(16,185,129,0.08); transition: background 0.2s;">Refresh</button>
   </form>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -67,7 +103,7 @@
   </script>
   <div class="tickets-table-wrapper">
     <form id="delete-tickets-form" method="post" action="{{ url_for('main.delete_tickets') }}">
-      <button type="submit" id="delete-tickets-btn" style="margin-bottom: 1rem; background: #dc2626; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.2rem; font-weight: 600; cursor: pointer;">Delete Selected</button>
+      <!-- Delete Selected button moved inline above -->
       <table class="ticket-table">
         <thead>
           <tr>
@@ -111,16 +147,21 @@
           });
         }
         var form = document.getElementById('delete-tickets-form');
-        var btn = document.getElementById('delete-tickets-btn');
-        form.addEventListener('submit', function(e) {
-          if (![...checkboxes].some(cb => cb.checked)) {
-            e.preventDefault();
-            alert('Please select at least one ticket to delete.');
-          } else {
-            if (!confirm('Are you sure you want to delete the selected ticket(s)?')) {
+        var btns = [
+          document.getElementById('delete-tickets-btn'),
+          document.getElementById('delete-tickets-btn-inline')
+        ].filter(Boolean);
+        btns.forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            if (![...checkboxes].some(cb => cb.checked)) {
               e.preventDefault();
+              alert('Please select at least one ticket to delete.');
+            } else {
+              if (!confirm('Are you sure you want to delete the selected ticket(s)?')) {
+                e.preventDefault();
+              }
             }
-          }
+          });
         });
       });
     </script>
