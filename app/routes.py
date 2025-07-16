@@ -40,6 +40,10 @@ def create_user():
     )
     db.session.add(new_user)
     db.session.commit()
+    from .models import Log
+    log = Log(user=current_user.username, action='create_user', details=f"Created user '{username}' with role '{role}'")
+    db.session.add(log)
+    db.session.commit()
     flash(f"User '{username}' created.", 'success')
     return redirect(url_for('main.manage_users'))
 
@@ -55,6 +59,10 @@ def delete_user(username):
         return redirect(url_for('main.manage_users'))
     db.session.delete(user)
     db.session.commit()
+    from .models import Log
+    log = Log(user=current_user.username, action='delete_user', details=f"Deleted user '{username}'")
+    db.session.add(log)
+    db.session.commit()
     flash(f"User '{username}' deleted.", 'success')
     return redirect(url_for('main.manage_users'))
 
@@ -64,7 +72,8 @@ def delete_user(username):
 def audit_logs():
     if current_user.role != 'admin':
         return redirect(url_for('main.index'))
-    logs = []  # Replace with actual log query if available
+    from .models import Log
+    logs = Log.query.order_by(Log.timestamp.desc()).all()
     return render_template('audit_logs.html', logs=logs)
 
 # Create Ticket endpoint (must be after Blueprint definition)
@@ -88,6 +97,10 @@ def create_ticket():
             created_at=datetime.datetime.now()
         )
         db.session.add(ticket)
+        db.session.commit()
+        from .models import Log
+        log = Log(user=current_user.username, action='create_ticket', details=f"Created ticket '{ticket.subject}' (ID: {ticket.id})")
+        db.session.add(log)
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -288,6 +301,10 @@ def edit_ticket(ticket_id):
         ticket.description = request.form.get('description', ticket.description)
         assigned_to = request.form.get('assigned_to')
         ticket.assigned_to = int(assigned_to) if assigned_to else None
+        db.session.commit()
+        from .models import Log
+        log = Log(user=current_user.username, action='edit_ticket', details=f"Edited ticket '{ticket.subject}' (ID: {ticket.id})")
+        db.session.add(log)
         db.session.commit()
         return redirect(url_for('main.tickets'))
     return render_template('edit_ticket.html', ticket=ticket, infra_users=infra_users)
