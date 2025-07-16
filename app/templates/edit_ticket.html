@@ -21,8 +21,13 @@
     </select>
     <label style="font-weight:600; color:#4f8cff;">Description:</label>
     <textarea name="description" required style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db; min-height:80px;">{{ ticket.description }}</textarea>
-    <label style="font-weight:600; color:#4f8cff;">Assignee (User ID):</label>
-    <input type="number" name="assigned_to" value="{{ ticket.assigned_to or '' }}" style="width:100%; margin-bottom:1.5rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+    <label style="font-weight:600; color:#4f8cff;">Assignee:</label>
+    <select name="assigned_to" style="width:100%; margin-bottom:1.5rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+      <option value="">-- None --</option>
+      {% for user in infra_users %}
+        <option value="{{ user.id }}" {% if ticket.assigned_to == user.id %}selected{% endif %}>{{ user.username }}</option>
+      {% endfor %}
+    </select>
     <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Save Changes</button>
     <a href="{{ url_for('main.tickets') }}" style="margin-left:1.2rem; color:#dc2626; font-weight:600; text-decoration:none;">Cancel</a>
   </form>

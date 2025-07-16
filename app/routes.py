@@ -279,13 +279,15 @@ def edit_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
     if current_user.role != 'admin':
         return redirect(url_for('main.index'))
+    infra_users = User.query.filter_by(role='infra').order_by(User.username).all()
     if request.method == 'POST':
         ticket.subject = request.form.get('subject', ticket.subject)
         ticket.category = request.form.get('category', ticket.category)
         ticket.urgency = request.form.get('urgency', ticket.urgency)
         ticket.status = request.form.get('status', ticket.status)
         ticket.description = request.form.get('description', ticket.description)
-        ticket.assigned_to = request.form.get('assigned_to', ticket.assigned_to)
+        assigned_to = request.form.get('assigned_to')
+        ticket.assigned_to = int(assigned_to) if assigned_to else None
         db.session.commit()
         return redirect(url_for('main.tickets'))
-    return render_template('edit_ticket.html', ticket=ticket)
+    return render_template('edit_ticket.html', ticket=ticket, infra_users=infra_users)

@@ -12,7 +12,6 @@
       <select name="role" required style="margin-right:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
         <option value="admin">Admin</option>
         <option value="infra">Infra</option>
-        <option value="user">User</option>
       </select>
       <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700;">Create User</button>
     </form>
@@ -31,9 +30,7 @@
           <td>{{ user.role }}</td>
           <td>
             {% if user.username != 'admin' %}
-            <form method="post" action="{{ url_for('main.delete_user', username=user.username) }}" style="display:inline;">
-              <button type="submit" style="background:#dc2626; color:#fff; border:none; border-radius:6px; padding:0.3rem 0.8rem; font-weight:600; cursor:pointer;">Delete</button>
-            </form>
+            <button type="button" class="delete-user-btn" data-username="{{ user.username }}" style="background:#dc2626; color:#fff; border:none; border-radius:6px; padding:0.3rem 0.8rem; font-weight:600; cursor:pointer;">Delete</button>
             {% else %}
             <span style="color:#b45309;">Protected</span>
             {% endif %}
@@ -47,4 +44,53 @@
     {% endif %}
   </div>
 </div>
+<!-- Delete User Modal -->
+<div id="delete-user-modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100vw; height:100vh; background:rgba(44,62,80,0.18); justify-content:center; align-items:center;">
+  <div id="delete-user-modal-content" style="background:#fff; border-radius:16px; padding:2.2rem 2.5rem 2rem 2.5rem; max-width:340px; box-shadow:0 8px 32px rgba(220,38,38,0.18); position:relative; transform:scale(0.8); opacity:0; transition:transform 0.25s cubic-bezier(.68,-0.55,.27,1.55), opacity 0.25s;">
+    <span id="close-delete-user-modal" style="position:absolute; top:18px; right:22px; font-size:1.7rem; color:#dc2626; cursor:pointer; font-weight:700;">&times;</span>
+    <h2 style="color:#dc2626; font-size:1.25rem; font-weight:700; margin-bottom:1.2rem; text-align:center;">Delete User</h2>
+    <div id="delete-user-modal-message" style="color:#2d3a4b; font-size:1.08rem; margin-bottom:1.5rem; text-align:center;"></div>
+    <form id="delete-user-form" method="post" style="display:flex; flex-direction:row; justify-content:center; gap:1.2rem;">
+      <button type="submit" id="confirm-delete-user-btn" style="background:#dc2626; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(220,38,38,0.08); cursor:pointer; transition:background 0.2s;">Yes</button>
+      <button type="button" id="cancel-delete-user-btn" style="background:#e0e7ff; color:#dc2626; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(220,38,38,0.08); cursor:pointer; transition:background 0.2s;">No</button>
+    </form>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('delete-user-modal');
+    var modalContent = document.getElementById('delete-user-modal-content');
+    var closeBtn = document.getElementById('close-delete-user-modal');
+    var cancelBtn = document.getElementById('cancel-delete-user-btn');
+    var message = document.getElementById('delete-user-modal-message');
+    var form = document.getElementById('delete-user-form');
+    var confirmBtn = document.getElementById('confirm-delete-user-btn');
+    var deleteBtns = document.querySelectorAll('.delete-user-btn');
+    var usernameToDelete = null;
+    deleteBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        usernameToDelete = btn.getAttribute('data-username');
+        message.textContent = `Are you sure you want to delete '${usernameToDelete}'?`;
+        form.action = `/delete_user/${usernameToDelete}`;
+        modal.style.display = 'flex';
+        setTimeout(function() {
+          modalContent.style.transform = 'scale(1)';
+          modalContent.style.opacity = '1';
+        }, 10);
+      });
+    });
+    function closeModal() {
+      modalContent.style.transform = 'scale(0.8)';
+      modalContent.style.opacity = '0';
+      setTimeout(function() {
+        modal.style.display = 'none';
+      }, 250);
+    }
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    window.addEventListener('click', function(event) {
+      if(event.target === modal) closeModal();
+    });
+  });
+</script>
 {% endblock %}
