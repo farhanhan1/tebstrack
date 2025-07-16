@@ -410,7 +410,8 @@
     }
   </style>
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    // Synchronous sidenav state initialization before DOMContentLoaded
+    window.addEventListener('DOMContentLoaded', function() {
       var profileBtn = document.getElementById('profile-btn');
       var dropdown = document.getElementById('profile-dropdown');
       if (profileBtn && dropdown) {
@@ -425,19 +426,36 @@
       var sidenav = document.getElementById('sidenav');
       var hamburger = document.getElementById('sidenav-hamburger');
       var mainContent = document.querySelector('.main-content');
-      hamburger.addEventListener('click', function(e) {
-        e.stopPropagation();
-        sidenav.classList.toggle('minimized');
-        if (sidenav.classList.contains('minimized')) {
-          mainContent.style.marginLeft = '60px';
-        } else {
-          mainContent.style.marginLeft = window.innerWidth <= 700 ? '60px' : '200px';
-        }
-      });
+      // Always start collapsed unless localStorage says otherwise
+      var minimized = localStorage.getItem('sidenav_minimized');
+      if (sidenav && minimized === 'true') {
+        sidenav.classList.add('minimized');
+        if (mainContent) mainContent.style.marginLeft = '60px';
+      } else if (sidenav) {
+        sidenav.classList.remove('minimized');
+        if (mainContent) mainContent.style.marginLeft = window.innerWidth <= 700 ? '60px' : '200px';
+      }
+      if (hamburger) {
+        hamburger.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var minimized = !sidenav.classList.contains('minimized');
+          if (minimized) {
+            sidenav.classList.add('minimized');
+            sidenav.style.width = '60px';
+            if (mainContent) mainContent.style.marginLeft = '60px';
+          } else {
+            sidenav.classList.remove('minimized');
+            sidenav.style.width = window.innerWidth <= 700 ? '60px' : '200px';
+            if (mainContent) mainContent.style.marginLeft = window.innerWidth <= 700 ? '60px' : '200px';
+          }
+          localStorage.setItem('sidenav_minimized', minimized ? 'true' : 'false');
+        });
+      }
     });
   </script>
 </head>
 <body>
+  <!-- sidenav state initialization is now handled in <head> -->
   <div class="navbar">
     <a href="{{ url_for('main.index') }}" class="navbar-title" style="text-decoration:none;">
       TeBSTrack
@@ -454,7 +472,19 @@
     {% endif %}
   </div>
   {% if not hide_sidenav %}
-  <div class="sidenav" id="sidenav">
+  <script>
+    // Set inline style for sidenav before rendering
+    (function() {
+      var minimized = window.localStorage.getItem('sidenav_minimized');
+      var style = '';
+      if (minimized === 'true') {
+        style = 'width:60px;';
+      } else {
+        style = window.innerWidth <= 700 ? 'width:60px;' : 'width:200px;';
+      }
+      document.write('<div class="sidenav' + (minimized === 'true' ? ' minimized' : '') + '" id="sidenav" style="' + style + '">');
+    })();
+  </script>
     <div class="sidenav-hamburger" id="sidenav-hamburger">
       <span></span>
       <span></span>

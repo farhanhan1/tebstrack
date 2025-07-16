@@ -55,13 +55,6 @@
         {% endif %}
       </select>
     </label>
-    <label style="font-weight: 600; color: #4f8cff; margin-right: 0.3rem; display: flex; align-items: center;">Status:
-      <select name="status" style="margin-left: 0.5rem; padding: 0.35rem 0.9rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; font-weight: 500;">
-        {% for s in all_statuses %}
-        <option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s }}</option>
-        {% endfor %}
-      </select>
-    </label>
     <label style="font-weight: 600; color: #4f8cff; margin-right: 0.3rem; display: flex; align-items: center;">Category:
       <select name="category" style="margin-left: 0.5rem; padding: 0.35rem 0.9rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; font-weight: 500;">
         <option value="All">All</option>
