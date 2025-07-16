@@ -166,10 +166,11 @@
     }
     .login-container {
       background: #fff;
-      max-width: 350px;
-      margin: 60px auto;
-      padding: 2.5rem 2rem 2rem 2rem;
-      border-radius: 12px;
+      max-width: 440px;
+      min-width: 340px;
+      margin: 120px auto 0 auto;
+      padding: 2.5rem 2.5rem 2rem 2.5rem;
+      border-radius: 14px;
       box-shadow: 0 4px 24px rgba(0,0,0,0.08);
       display: flex;
       flex-direction: column;
@@ -383,6 +384,15 @@
       font-size: 1.08rem;
       font-weight: 500;
     }
+    .main-content.no-sidenav {
+      margin-left: 0 !important;
+      margin-top: 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: calc(100vh - 64px);
+    }
     @media (max-width: 700px) {
       .sidenav {
         width: 60px;
@@ -443,6 +453,7 @@
     </div>
     {% endif %}
   </div>
+  {% if not hide_sidenav %}
   <div class="sidenav" id="sidenav">
     <div class="sidenav-hamburger" id="sidenav-hamburger">
       <span></span>
@@ -476,7 +487,8 @@
       <span class="sidenav-label">Logout</span>
     </a>
   </div>
-  <div class="main-content">
+  {% endif %}
+  <div class="main-content{% if hide_sidenav %} no-sidenav{% endif %}">
     {% block content %}{% endblock %}
   </div>
 </body>
