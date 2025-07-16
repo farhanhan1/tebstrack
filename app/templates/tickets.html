@@ -66,36 +66,64 @@
     });
   </script>
   <div class="tickets-table-wrapper">
-    <table class="ticket-table">
-      <thead>
-        <tr>
-          <th>S/N</th>
-          <th>Issue Reported Date</th>
-          <th>Category</th>
-          <th>Ticket Name</th>
-          <th>Request by</th>
-          <th>Resolution</th>
-          <th>Assignee</th>
-          <th>Urgency</th>
-          <th>Date of Completion</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for ticket in tickets %}
-        <tr>
-          <td>{{ loop.index }}</td>
-          <td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td>
-          <td><span class="badge badge-category">{{ ticket.category or '-' }}</span></td>
-          <td><a class="ticket-link" href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
-          <td><span class="badge badge-requestor">{{ ticket.sender or '-' }}</span></td>
-          <td>{% if ticket.status == 'Closed' %}<span class="badge badge-resolution">{{ ticket.resolution or '-' }}</span>{% else %}-{% endif %}</td>
-          <td>{% if ticket.status == 'Closed' %}<span class="badge badge-assignee">{{ ticket.assigned_to or '-' }}</span>{% else %}-{% endif %}</td>
-          <td><span class="badge badge-urgency badge-urgency-{{ ticket.urgency|lower }}">{{ ticket.urgency or '-' }}</span></td>
-          <td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <form id="delete-tickets-form" method="post" action="{{ url_for('main.delete_tickets') }}">
+      <button type="submit" id="delete-tickets-btn" style="margin-bottom: 1rem; background: #dc2626; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.2rem; font-weight: 600; cursor: pointer;">Delete Selected</button>
+      <table class="ticket-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all-tickets"></th>
+            <th>S/N</th>
+            <th>Issue Reported Date</th>
+            <th>Category</th>
+            <th>Ticket Name</th>
+            <th>Request by</th>
+            <th>Resolution</th>
+            <th>Assignee</th>
+            <th>Urgency</th>
+            <th>Date of Completion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ticket in tickets %}
+          <tr>
+            <td><input type="checkbox" name="ticket_ids" value="{{ ticket.id }}"></td>
+            <td>{{ loop.index }}</td>
+            <td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td>
+            <td><span class="badge badge-category">{{ ticket.category or '-' }}</span></td>
+            <td><a class="ticket-link" href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
+            <td><span class="badge badge-requestor">{{ ticket.sender or '-' }}</span></td>
+            <td>{% if ticket.status == 'Closed' %}<span class="badge badge-resolution">{{ ticket.resolution or '-' }}</span>{% else %}-{% endif %}</td>
+            <td>{% if ticket.status == 'Closed' %}<span class="badge badge-assignee">{{ ticket.assigned_to or '-' }}</span>{% else %}-{% endif %}</td>
+            <td><span class="badge badge-urgency badge-urgency-{{ ticket.urgency|lower }}">{{ ticket.urgency or '-' }}</span></td>
+            <td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </form>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var selectAll = document.getElementById('select-all-tickets');
+        var checkboxes = document.querySelectorAll('input[name="ticket_ids"]');
+        if (selectAll) {
+          selectAll.addEventListener('change', function() {
+            checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+          });
+        }
+        var form = document.getElementById('delete-tickets-form');
+        var btn = document.getElementById('delete-tickets-btn');
+        form.addEventListener('submit', function(e) {
+          if (![...checkboxes].some(cb => cb.checked)) {
+            e.preventDefault();
+            alert('Please select at least one ticket to delete.');
+          } else {
+            if (!confirm('Are you sure you want to delete the selected ticket(s)?')) {
+              e.preventDefault();
+            }
+          }
+        });
+      });
+    </script>
   </div>
 </div>
 {% endblock %}

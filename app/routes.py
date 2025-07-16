@@ -1,3 +1,5 @@
+
+# Only import and define Blueprint ONCE at the top
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify
 from flask_login import login_user, login_required, logout_user, current_user
 from .models import User, Ticket, db
@@ -18,6 +20,26 @@ def fetch_emails():
         return jsonify({'success': True, 'new_tickets': count})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+
+# Delete tickets route (must be after Blueprint definition, and only defined once)
+@main.route('/delete_tickets', methods=['POST'])
+@login_required
+def delete_tickets():
+    ids = request.form.getlist('ticket_ids')
+    if not ids and request.is_json:
+        ids = request.get_json().get('ticket_ids', [])
+    if ids:
+        Ticket.query.filter(Ticket.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+        if request.is_json:
+            return jsonify({'success': True})
+    if request.is_json:
+        return jsonify({'success': False, 'error': 'No ticket IDs provided.'})
+    return redirect(url_for('main.tickets'))
+
+# (Removed duplicate import and Blueprint block)
 
 @main.before_app_request
 def require_login():
