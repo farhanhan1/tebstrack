@@ -66,6 +66,31 @@ def delete_user(username):
     flash(f"User '{username}' deleted.", 'success')
     return redirect(url_for('main.manage_users'))
 
+# Admin: Edit User endpoint
+@main.route('/edit_user/<username>', methods=['POST'])
+@login_required
+def edit_user(username):
+    if current_user.role != 'admin':
+        return redirect(url_for('main.index'))
+    user = User.query.filter_by(username=username).first()
+    if not user or user.username == 'admin':
+        flash('Cannot edit this user.', 'error')
+        return redirect(url_for('main.manage_users'))
+    password = request.form.get('password')
+    role = request.form.get('role')
+    if role:
+        user.role = role
+    if password:
+        from werkzeug.security import generate_password_hash
+        user.password = generate_password_hash(password)
+    db.session.commit()
+    from .models import Log
+    log = Log(user=current_user.username, action='edit_user', details=f"Edited user '{username}' (role: {role})")
+    db.session.add(log)
+    db.session.commit()
+    flash(f"User '{username}' updated.", 'success')
+    return redirect(url_for('main.manage_users'))
+
 # Admin: Audit Logs page
 @main.route('/audit_logs', methods=['GET'])
 @login_required

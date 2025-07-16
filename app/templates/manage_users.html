@@ -3,7 +3,7 @@
 <div class="dashboard-container">
   <h1 style="color:#2563eb;">Manage Users</h1>
   <div class="admin-section" style="margin-top:2rem;">
-    <form method="post" action="{{ url_for('main.create_user') }}" style="margin-bottom:2rem;">
+    <form method="post" action="{{ url_for('main.create_user') }}" style="margin-bottom:2rem; display:none;" id="create-user-form-inline">
       <label style="font-weight:600; color:#4f8cff;">Username:</label>
       <input type="text" name="username" required style="margin-right:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
       <label style="font-weight:600; color:#4f8cff;">Password:</label>
@@ -15,6 +15,7 @@
       </select>
       <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700;">Create User</button>
     </form>
+    <button type="button" id="open-create-user-modal" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; margin-bottom:2rem;">Create User</button>
     <table class="ticket-table">
       <thead>
         <tr>
@@ -30,6 +31,7 @@
           <td>{{ user.role }}</td>
           <td>
             {% if user.username != 'admin' %}
+            <button type="button" class="edit-user-btn" data-username="{{ user.username }}" data-role="{{ user.role }}" style="background:#4f8cff; color:#fff; border:none; border-radius:6px; padding:0.3rem 0.8rem; font-weight:600; cursor:pointer; margin-right:0.5rem;">Edit</button>
             <button type="button" class="delete-user-btn" data-username="{{ user.username }}" style="background:#dc2626; color:#fff; border:none; border-radius:6px; padding:0.3rem 0.8rem; font-weight:600; cursor:pointer;">Delete</button>
             {% else %}
             <span style="color:#b45309;">Protected</span>
@@ -53,6 +55,38 @@
     <form id="delete-user-form" method="post" style="display:flex; flex-direction:row; justify-content:center; gap:1.2rem;">
       <button type="submit" id="confirm-delete-user-btn" style="background:#dc2626; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(220,38,38,0.08); cursor:pointer; transition:background 0.2s;">Yes</button>
       <button type="button" id="cancel-delete-user-btn" style="background:#e0e7ff; color:#dc2626; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(220,38,38,0.08); cursor:pointer; transition:background 0.2s;">No</button>
+    </form>
+  </div>
+</div>
+<!-- Create User Modal -->
+<div id="create-user-modal" style="display:none; position:fixed; z-index:2100; left:0; top:0; width:100vw; height:100vh; background:rgba(44,62,80,0.18); justify-content:center; align-items:center;">
+  <div id="create-user-modal-content" style="background:#fff; border-radius:16px; padding:2.2rem 2.5rem 2rem 2.5rem; max-width:340px; box-shadow:0 8px 32px rgba(37,99,235,0.18); position:relative; transform:scale(0.8); opacity:0; transition:transform 0.25s cubic-bezier(.68,-0.55,.27,1.55), opacity 0.25s;">
+    <span id="close-create-user-modal" style="position:absolute; top:18px; right:22px; font-size:1.7rem; color:#2563eb; cursor:pointer; font-weight:700;">&times;</span>
+    <h2 style="color:#2563eb; font-size:1.25rem; font-weight:700; margin-bottom:1.2rem; text-align:center;">Create User</h2>
+    <form id="create-user-modal-form" method="post" action="{{ url_for('main.create_user') }}" style="display:flex; flex-direction:column; gap:1.1rem;">
+      <input type="text" name="username" placeholder="Username" required style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+      <input type="password" name="password" placeholder="Password" required style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+      <select name="role" required style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+        <option value="admin">Admin</option>
+        <option value="infra">Infra</option>
+      </select>
+      <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Create</button>
+    </form>
+  </div>
+</div>
+<!-- Edit User Modal -->
+<div id="edit-user-modal" style="display:none; position:fixed; z-index:2100; left:0; top:0; width:100vw; height:100vh; background:rgba(44,62,80,0.18); justify-content:center; align-items:center;">
+  <div id="edit-user-modal-content" style="background:#fff; border-radius:16px; padding:2.2rem 2.5rem 2rem 2.5rem; max-width:340px; box-shadow:0 8px 32px rgba(37,99,235,0.18); position:relative; transform:scale(0.8); opacity:0; transition:transform 0.25s cubic-bezier(.68,-0.55,.27,1.55), opacity 0.25s;">
+    <span id="close-edit-user-modal" style="position:absolute; top:18px; right:22px; font-size:1.7rem; color:#2563eb; cursor:pointer; font-weight:700;">&times;</span>
+    <h2 style="color:#2563eb; font-size:1.25rem; font-weight:700; margin-bottom:1.2rem; text-align:center;">Edit User</h2>
+    <form id="edit-user-modal-form" method="post" style="display:flex; flex-direction:column; gap:1.1rem;">
+      <input type="hidden" name="username" id="edit-user-username">
+      <input type="password" name="password" placeholder="New Password (leave blank to keep)" style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+      <select name="role" id="edit-user-role" required style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+        <option value="admin">Admin</option>
+        <option value="infra">Infra</option>
+      </select>
+      <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Save Changes</button>
     </form>
   </div>
 </div>
@@ -90,6 +124,60 @@
     cancelBtn.addEventListener('click', closeModal);
     window.addEventListener('click', function(event) {
       if(event.target === modal) closeModal();
+    });
+    var createUserModal = document.getElementById('create-user-modal');
+    var createUserModalContent = document.getElementById('create-user-modal-content');
+    var openCreateUserBtn = document.getElementById('open-create-user-modal');
+    var closeCreateUserBtn = document.getElementById('close-create-user-modal');
+    openCreateUserBtn.addEventListener('click', function() {
+      createUserModal.style.display = 'flex';
+      setTimeout(function() {
+        createUserModalContent.style.transform = 'scale(1)';
+        createUserModalContent.style.opacity = '1';
+      }, 10);
+    });
+    function closeCreateUserModal() {
+      createUserModalContent.style.transform = 'scale(0.8)';
+      createUserModalContent.style.opacity = '0';
+      setTimeout(function() {
+        createUserModal.style.display = 'none';
+      }, 250);
+    }
+    closeCreateUserBtn.addEventListener('click', closeCreateUserModal);
+    window.addEventListener('click', function(event) {
+      if(event.target === createUserModal) closeCreateUserModal();
+    });
+    var editUserModal = document.getElementById('edit-user-modal');
+    var editUserModalContent = document.getElementById('edit-user-modal-content');
+    var openEditUserBtns = document.querySelectorAll('.edit-user-btn');
+    var closeEditUserBtn = document.getElementById('close-edit-user-modal');
+    var editUserForm = document.getElementById('edit-user-modal-form');
+    var editUserUsername = document.getElementById('edit-user-username');
+    var editUserRole = document.getElementById('edit-user-role');
+    openEditUserBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var username = btn.getAttribute('data-username');
+        var role = btn.getAttribute('data-role');
+        editUserUsername.value = username;
+        editUserRole.value = role;
+        editUserForm.action = `/edit_user/${username}`;
+        editUserModal.style.display = 'flex';
+        setTimeout(function() {
+          editUserModalContent.style.transform = 'scale(1)';
+          editUserModalContent.style.opacity = '1';
+        }, 10);
+      });
+    });
+    function closeEditUserModal() {
+      editUserModalContent.style.transform = 'scale(0.8)';
+      editUserModalContent.style.opacity = '0';
+      setTimeout(function() {
+        editUserModal.style.display = 'none';
+      }, 250);
+    }
+    closeEditUserBtn.addEventListener('click', closeEditUserModal);
+    window.addEventListener('click', function(event) {
+      if(event.target === editUserModal) closeEditUserModal();
     });
   });
 </script>
