@@ -238,7 +238,17 @@
             <td>{{ ticket.status }}</td>
             <td>{% if ticket.status == 'Closed' %}<span class="badge badge-resolution">{{ ticket.resolution or '-' }}</span>{% else %}-{% endif %}</td>
             <td>{% if ticket.status == 'Closed' %}<span class="badge badge-assignee">{{ user_map[ticket.assigned_to] if ticket.assigned_to and ticket.assigned_to in user_map else '-' }}</span>{% else %}-{% endif %}</td>
-            <td><span class="badge badge-urgency badge-urgency-{{ ticket.urgency|lower }}">{{ ticket.urgency or '-' }}</span></td>
+            <td>
+              {% set urgency_styles = {
+                'low': 'background:#d1fae5; color:#059669;',
+                'medium': 'background:#fef9c3; color:#ca8a04;',
+                'high': 'background:#fee2e2; color:#dc2626;',
+                'urgent': 'background:#f87171; color:#fff;'
+              } %}
+              <span style="display:inline-block; min-width:2.7em; padding:0.32em 1.1em; border-radius:999px; font-size:1em; font-weight:700; text-align:center; {{ urgency_styles[ticket.urgency|lower] if ticket.urgency and ticket.urgency|lower in urgency_styles else 'background:#e0e7ff; color:#4f8cff;' }}">
+                {{ ticket.urgency or '-' }}
+              </span>
+            </td>
             <td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td>
           </tr>
           {% endfor %}
