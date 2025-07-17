@@ -503,7 +503,7 @@
       <span class="sidenav-icon">👤</span>
       <span class="sidenav-label">Profile</span>
     </a>
-    <a href="{{ url_for('main.tickets') }}" class="sidenav-link{% if request.endpoint == 'main.tickets' %} active{% endif %}" data-label="Tickets">
+    <a href="{{ url_for('main.tickets') }}" class="sidenav-link{% if request.endpoint in ['main.tickets', 'main.view_ticket'] %} active{% endif %}" data-label="Tickets">
       <span class="sidenav-icon">🎫</span>
       <span class="sidenav-label">Tickets</span>
     </a>
