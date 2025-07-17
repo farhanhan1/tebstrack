@@ -516,6 +516,10 @@
       <span class="sidenav-icon">📜</span>
       <span class="sidenav-label">Logs</span>
     </a>
+    <a href="{{ url_for('main.settings') }}" class="sidenav-link{% if request.endpoint == 'main.settings' %} active{% endif %}" data-label="Settings">
+      <span class="sidenav-icon">⚙️</span>
+      <span class="sidenav-label">Settings</span>
+    </a>
     {% endif %}
     <a href="{{ url_for('main.logout') }}" class="sidenav-link{% if request.endpoint == 'main.logout' %} active{% endif %}" data-label="Logout">
       <span class="sidenav-icon">🚪</span>

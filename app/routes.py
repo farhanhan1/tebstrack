@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify
 from flask_login import login_user, login_required, logout_user, current_user
-from app.models import User, Ticket, db
+from app.models import User, Ticket, db, Category
 from app.models import Log as TicketLog
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -9,6 +9,75 @@ import datetime
 from .fetch_emails_util import fetch_and_store_emails
 
 main = Blueprint('main', __name__)
+
+# ...existing code...
+
+
+
+# ...existing code...
+
+@main.route('/settings', methods=['GET'])
+@login_required
+def settings():
+    # Only admin can manage categories
+    if current_user.role != 'admin':
+        return render_template('settings.html', all_categories=[], current_user=current_user)
+    all_categories = Category.query.order_by(Category.name).all()
+    return render_template('settings.html', all_categories=all_categories, current_user=current_user)
+
+@main.route('/add_category', methods=['POST'])
+@login_required
+def add_category():
+    if current_user.role != 'admin':
+        return redirect(url_for('main.settings'))
+    new_category = request.form.get('category')
+    if new_category:
+        if not Category.query.filter_by(name=new_category).first():
+            db.session.add(Category(name=new_category))
+            db.session.commit()
+            log = TicketLog(user=current_user.username, action='add_category', details=f"Added category '{new_category}'")
+            db.session.add(log)
+            db.session.commit()
+    return redirect(url_for('main.settings'))
+
+@main.route('/edit_category/<category>', methods=['POST'])
+@login_required
+def edit_category(category):
+    if current_user.role != 'admin':
+        return redirect(url_for('main.settings'))
+    new_category = request.form.get('new_category')
+    if new_category:
+        cat = Category.query.filter_by(name=category).first()
+        if cat:
+            old_name = cat.name
+            cat.name = new_category
+            db.session.commit()
+            # Update all tickets with the old category to the new one
+            Ticket.query.filter_by(category=category).update({'category': new_category})
+            db.session.commit()
+            log = TicketLog(user=current_user.username, action='edit_category', details=f"Renamed category '{old_name}' to '{new_category}'")
+            db.session.add(log)
+            db.session.commit()
+    return redirect(url_for('main.settings'))
+
+@main.route('/delete_category/<category>', methods=['POST'])
+@login_required
+def delete_category(category):
+    if current_user.role != 'admin':
+        return redirect(url_for('main.settings'))
+    cat = Category.query.filter_by(name=category).first()
+    if cat:
+        db.session.delete(cat)
+        db.session.commit()
+        # Remove category from all tickets
+        Ticket.query.filter_by(category=category).update({'category': None})
+        db.session.commit()
+        log = TicketLog(user=current_user.username, action='delete_category', details=f"Deleted category '{category}'")
+        db.session.add(log)
+        db.session.commit()
+    return redirect(url_for('main.settings'))
+
+
 
 # Admin: Manage Users page
 @main.route('/manage_users', methods=['GET'])
@@ -322,8 +391,6 @@ def tickets():
     all_categories = sorted(set([t.category for t in Ticket.query if t.category]))
     all_statuses = ['Open', 'Closed', 'All']
 
-    # Build a mapping of user IDs to usernames for assignees
-    user_map = {u.id: u.username for u in User.query.all()}
     return render_template('tickets.html',
         tickets=tickets,
         month=month,
@@ -334,18 +401,15 @@ def tickets():
         all_statuses=all_statuses,
         tickets_raised=tickets_raised,
         most_common_category=most_common_category,
-        most_common_requestor=most_common_requestor,
-        user_map=user_map
+        most_common_requestor=most_common_requestor
     )
 
 @main.route('/viewticket/<int:ticket_id>')
 @login_required
 def view_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
-    from app.models import User
-    all_users = User.query.order_by(User.username).all()
-    all_categories = [c[0] for c in db.session.query(Ticket.category).distinct().all()]
-    return render_template('viewticket.html', ticket=ticket, all_users=all_users, all_categories=all_categories)
+    all_categories = Category.query.order_by(Category.name).all()
+    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories)
 
 # Admin: Edit Ticket page
 @main.route('/edit_ticket/<int:ticket_id>', methods=['GET', 'POST'])
@@ -354,35 +418,19 @@ def edit_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
     if current_user.role != 'admin':
         return redirect(url_for('main.index'))
-    all_users = User.query.order_by(User.username).all()
-    all_categories = [c[0] for c in db.session.query(Ticket.category).distinct().all()]
+    infra_users = User.query.filter_by(role='infra').order_by(User.username).all()
     if request.method == 'POST':
         ticket.subject = request.form.get('subject', ticket.subject)
         ticket.category = request.form.get('category', ticket.category)
         ticket.urgency = request.form.get('urgency', ticket.urgency)
         ticket.status = request.form.get('status', ticket.status)
-        ticket.resolution = request.form.get('resolution', ticket.resolution)
-        ticket.sender = request.form.get('sender', ticket.sender)
+        ticket.description = request.form.get('description', ticket.description)
         assigned_to = request.form.get('assigned_to')
         ticket.assigned_to = int(assigned_to) if assigned_to else None
-        # Handle created_at and updated_at from form
-        created_at_str = request.form.get('created_at')
-        updated_at_str = request.form.get('updated_at')
-        import datetime
-        if created_at_str:
-            try:
-                ticket.created_at = datetime.datetime.strptime(created_at_str, '%Y-%m-%d')
-            except Exception:
-                pass
-        if updated_at_str:
-            try:
-                ticket.updated_at = datetime.datetime.strptime(updated_at_str, '%Y-%m-%d')
-            except Exception:
-                pass
         db.session.commit()
         from .models import Log
         log = Log(user=current_user.username, action='edit_ticket', details=f"Edited ticket '{ticket.subject}' (ID: {ticket.id})")
         db.session.add(log)
         db.session.commit()
         return redirect(url_for('main.tickets'))
-    return render_template('viewticket.html', ticket=ticket, all_users=all_users, all_categories=all_categories)
+    return render_template('edit_ticket.html', ticket=ticket, infra_users=infra_users)

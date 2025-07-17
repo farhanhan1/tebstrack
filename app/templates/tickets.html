@@ -56,6 +56,8 @@
               btn.textContent = 'Refresh';
               btn.disabled = false;
               if (data.success) {
+                // Set a flag so the catch block knows not to show error
+                window.__refreshSuccess = true;
                 window.location.reload();
               } else {
                 alert('Error: ' + (data.error || 'Could not fetch emails.'));
@@ -64,7 +66,7 @@
             .catch(function(error) {
               // Only show error if not already handled by .then
               // If .then triggered reload, don't show error
-              if (!btn.disabled) {
+              if (!window.__refreshSuccess && !btn.disabled && btn.textContent !== 'Refreshing...') {
                 btn.textContent = 'Refresh';
                 btn.disabled = false;
                 alert('Error: Could not fetch emails.');
@@ -105,33 +107,7 @@
     <button type="button" class="actions-dropdown-item" id="open-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.8rem 1.2rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Open Selected</button>
     <button type="button" class="actions-dropdown-item" id="delete-tickets" style="width:100%; background:none; border:none; color:#dc2626; padding:0.8rem 1.2rem; text-align:left; font-size:1rem; cursor:pointer;">Delete Selected</button>
   </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      var btn = document.getElementById('refresh-emails-btn');
-      if (btn) {
-        btn.addEventListener('click', function() {
-          btn.disabled = true;
-          btn.textContent = 'Refreshing...';
-          fetch('{{ url_for('main.fetch_emails') }}', {method: 'POST'})
-            .then(r => r.json())
-            .then(data => {
-              btn.textContent = 'Refresh';
-              btn.disabled = false;
-              if (data.success) {
-                window.location.reload();
-              } else {
-                alert('Error: ' + (data.error || 'Could not fetch emails.'));
-              }
-            })
-            .catch(() => {
-              btn.textContent = 'Refresh';
-              btn.disabled = false;
-              alert('Error: Could not fetch emails.');
-            });
-        });
-      }
-    });
-  </script>
+  <!-- Removed duplicate refresh button script. Only the version with window.__refreshSuccess remains above. -->
   <div class="tickets-table-wrapper">
   <!-- Create Ticket Modal -->
   <div id="create-ticket-modal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100vw; height:100vh; overflow:auto; background:rgba(44,62,80,0.18); justify-content:center; align-items:center;">
