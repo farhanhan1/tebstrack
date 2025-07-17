@@ -16,6 +16,7 @@
       <span class="stat-label" style="color: #059669; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">Most Common Requestor</span>
       <span class="stat-value" style="color: #059669; font-weight: 800; font-size: 1.5rem; letter-spacing: 0.5px; transition: font-size 0.2s;">{{ most_common_requestor }}</span>
     </div>
+    <!-- Removed old Refresh button from tickets-stats -->
   </div>
   <script>
     // Responsive font size for tickets-stats cards
@@ -42,6 +43,36 @@
     }
     window.addEventListener('resize', adjustTicketStatsFont);
     document.addEventListener('DOMContentLoaded', adjustTicketStatsFont);
+    // Refresh button logic (only new button beside Create)
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('refresh-emails-btn');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          btn.disabled = true;
+          btn.textContent = 'Refreshing...';
+          fetch('{{ url_for('main.fetch_emails') }}', {method: 'POST'})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              btn.textContent = 'Refresh';
+              btn.disabled = false;
+              if (data.success) {
+                window.location.reload();
+              } else {
+                alert('Error: ' + (data.error || 'Could not fetch emails.'));
+              }
+            })
+            .catch(function(error) {
+              // Only show error if not already handled by .then
+              // If .then triggered reload, don't show error
+              if (!btn.disabled) {
+                btn.textContent = 'Refresh';
+                btn.disabled = false;
+                alert('Error: Could not fetch emails.');
+              }
+            });
+        });
+      }
+    });
   </script>
   <form method="get" class="tickets-filters" style="margin-bottom:0; display: flex; gap: 1.1rem; align-items: center; flex-wrap: wrap; justify-content: center; width: 100%; background: #f4f6fb; border-radius: 12px; padding: 1rem 1.2rem 0.7rem 1.2rem; box-shadow: 0 1px 6px rgba(79,140,255,0.07);">
     <label style="font-weight: 600; color: #4f8cff; margin-right: 0.3rem; display: flex; align-items: center;">Month:
@@ -66,6 +97,7 @@
     <button type="submit" style="background: #4f8cff; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(79,140,255,0.08); transition: background 0.2s;">Filter</button>
     <button type="button" id="actions-btn" style="background: #6b7280; color: #fff; border: none; border-radius: 6px; padding: 0.38rem 1.1rem; font-weight: 700; font-size: 1rem; margin-left:0.5rem; box-shadow: 0 1px 4px rgba(107,114,128,0.08); cursor: not-allowed; opacity:0.6; position:relative;">Actions</button>
     <button type="button" id="open-create-ticket-modal" class="create-ticket-btn" style="margin-left:0.5rem; background:#2563eb; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(37,99,235,0.08); text-decoration: none; display: inline-block; transition: background 0.2s;">Create</button>
+    <button id="refresh-emails-btn" style="margin-left:0.5rem; background:#059669; color:#fff; border:none; border-radius:8px; padding:0.38rem 1.1rem; font-weight:700; font-size:1rem; box-shadow:0 1px 4px rgba(5,150,105,0.08); cursor:pointer; align-self:center; transition:background 0.2s;">Refresh</button>
   </form>
   <div id="actions-dropdown" style="display:none; position:fixed; background:#fff; box-shadow:0 8px 24px rgba(44,62,80,0.18); border-radius:10px; min-width:190px; z-index:9999; flex-direction:column; border:1px solid #e5e7eb; padding:0.3rem 0;">
     <div style="position:absolute; top:-10px; left:18px; width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:10px solid #fff; z-index:10000;"></div>
@@ -299,13 +331,16 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: action, ticket_ids: selectedIds })
-      }).then(r => r.json()).then(data => {
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
         if (data.success) {
           window.location.reload();
         } else {
           alert('Error: ' + (data.error || 'Could not perform action.'));
         }
-      }).catch(() => {
+      })
+      .catch(function() {
         alert('Error: Could not perform action.');
       });
     }
@@ -432,7 +467,7 @@
 .badge-resolution { background: #d1fae5; color: #059669; }
 .badge-assignee { background: #fef3c7; color: #b45309; }
 .badge-urgency-high { background: #fee2e2; color: #dc2626; }
-    // Responsive font size for tickets-stats cards
+.badge-urgency-medium { background: #fef9c3; color: #ca8a04; }
 .badge-urgency-low { background: #d1fae5; color: #059669; }
 .badge-urgency-urgent { background: #f87171; color: #fff; }
 </style>

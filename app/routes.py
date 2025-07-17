@@ -349,19 +349,21 @@ def edit_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
     if current_user.role != 'admin':
         return redirect(url_for('main.index'))
-    infra_users = User.query.filter_by(role='infra').order_by(User.username).all()
+    all_users = User.query.order_by(User.username).all()
+    all_categories = [c[0] for c in db.session.query(Ticket.category).distinct().all()]
     if request.method == 'POST':
         ticket.subject = request.form.get('subject', ticket.subject)
         ticket.category = request.form.get('category', ticket.category)
         ticket.urgency = request.form.get('urgency', ticket.urgency)
         ticket.status = request.form.get('status', ticket.status)
-        ticket.description = request.form.get('description', ticket.description)
+        ticket.resolution = request.form.get('resolution', ticket.resolution)
+        ticket.sender = request.form.get('sender', ticket.sender)
         assigned_to = request.form.get('assigned_to')
-        ticket.assigned_to = int(assigned_to) if assigned_to else None
+        ticket.assigned_to = assigned_to if assigned_to else None
         db.session.commit()
         from .models import Log
         log = Log(user=current_user.username, action='edit_ticket', details=f"Edited ticket '{ticket.subject}' (ID: {ticket.id})")
         db.session.add(log)
         db.session.commit()
         return redirect(url_for('main.tickets'))
-    return render_template('edit_ticket.html', ticket=ticket, infra_users=infra_users)
+    return render_template('viewticket.html', ticket=ticket, all_users=all_users, all_categories=all_categories)
