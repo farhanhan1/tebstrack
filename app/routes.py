@@ -322,6 +322,8 @@ def tickets():
     all_categories = sorted(set([t.category for t in Ticket.query if t.category]))
     all_statuses = ['Open', 'Closed', 'All']
 
+    # Build a mapping of user IDs to usernames for assignees
+    user_map = {u.id: u.username for u in User.query.all()}
     return render_template('tickets.html',
         tickets=tickets,
         month=month,
@@ -332,15 +334,18 @@ def tickets():
         all_statuses=all_statuses,
         tickets_raised=tickets_raised,
         most_common_category=most_common_category,
-        most_common_requestor=most_common_requestor
+        most_common_requestor=most_common_requestor,
+        user_map=user_map
     )
 
 @main.route('/viewticket/<int:ticket_id>')
 @login_required
 def view_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
-    # For now, just show all fields and a placeholder for email thread
-    return render_template('viewticket.html', ticket=ticket)
+    from app.models import User
+    all_users = User.query.order_by(User.username).all()
+    all_categories = [c[0] for c in db.session.query(Ticket.category).distinct().all()]
+    return render_template('viewticket.html', ticket=ticket, all_users=all_users, all_categories=all_categories)
 
 # Admin: Edit Ticket page
 @main.route('/edit_ticket/<int:ticket_id>', methods=['GET', 'POST'])
@@ -359,7 +364,21 @@ def edit_ticket(ticket_id):
         ticket.resolution = request.form.get('resolution', ticket.resolution)
         ticket.sender = request.form.get('sender', ticket.sender)
         assigned_to = request.form.get('assigned_to')
-        ticket.assigned_to = assigned_to if assigned_to else None
+        ticket.assigned_to = int(assigned_to) if assigned_to else None
+        # Handle created_at and updated_at from form
+        created_at_str = request.form.get('created_at')
+        updated_at_str = request.form.get('updated_at')
+        import datetime
+        if created_at_str:
+            try:
+                ticket.created_at = datetime.datetime.strptime(created_at_str, '%Y-%m-%d')
+            except Exception:
+                pass
+        if updated_at_str:
+            try:
+                ticket.updated_at = datetime.datetime.strptime(updated_at_str, '%Y-%m-%d')
+            except Exception:
+                pass
         db.session.commit()
         from .models import Log
         log = Log(user=current_user.username, action='edit_ticket', details=f"Edited ticket '{ticket.subject}' (ID: {ticket.id})")
