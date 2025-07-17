@@ -64,10 +64,15 @@
       </select>
     </label>
     <button type="submit" style="background: #4f8cff; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(79,140,255,0.08); transition: background 0.2s;">Filter</button>
-    <button type="submit" form="delete-tickets-form" id="delete-tickets-btn-inline" style="background: #dc2626; color: #fff; border: none; border-radius: 6px; padding: 0.38rem 1.1rem; font-weight: 700; cursor: pointer; font-size: 1rem; margin-left:0.5rem; box-shadow: 0 1px 4px rgba(220,38,38,0.08); transition: background 0.2s;">Delete Selected</button>
-    <button type="button" id="refresh-emails-btn" style="margin-left:0.5rem; background:#059669; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(16,185,129,0.08); transition: background 0.2s;">Refresh</button>
+    <button type="button" id="actions-btn" style="background: #6b7280; color: #fff; border: none; border-radius: 6px; padding: 0.38rem 1.1rem; font-weight: 700; font-size: 1rem; margin-left:0.5rem; box-shadow: 0 1px 4px rgba(107,114,128,0.08); cursor: not-allowed; opacity:0.6; position:relative;">Actions</button>
     <button type="button" id="open-create-ticket-modal" class="create-ticket-btn" style="margin-left:0.5rem; background:#2563eb; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(37,99,235,0.08); text-decoration: none; display: inline-block; transition: background 0.2s;">Create</button>
   </form>
+  <div id="actions-dropdown" style="display:none; position:fixed; background:#fff; box-shadow:0 8px 24px rgba(44,62,80,0.18); border-radius:10px; min-width:190px; z-index:9999; flex-direction:column; border:1px solid #e5e7eb; padding:0.3rem 0;">
+    <div style="position:absolute; top:-10px; left:18px; width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:10px solid #fff; z-index:10000;"></div>
+    <button type="button" class="actions-dropdown-item" id="close-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.8rem 1.2rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Close Selected</button>
+    <button type="button" class="actions-dropdown-item" id="open-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.8rem 1.2rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Open Selected</button>
+    <button type="button" class="actions-dropdown-item" id="delete-tickets" style="width:100%; background:none; border:none; color:#dc2626; padding:0.8rem 1.2rem; text-align:left; font-size:1rem; cursor:pointer;">Delete Selected</button>
+  </div>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('refresh-emails-btn');
@@ -182,6 +187,7 @@
             <th>Category</th>
             <th>Ticket Name</th>
             <th>Request by</th>
+            <th>Status</th>
             <th>Resolution</th>
             <th>Assignee</th>
             <th>Urgency</th>
@@ -197,6 +203,7 @@
             <td><span class="badge badge-category">{{ ticket.category or '-' }}</span></td>
             <td><a class="ticket-link" href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
             <td><span class="badge badge-requestor">{{ ticket.sender or '-' }}</span></td>
+            <td>{{ ticket.status }}</td>
             <td>{% if ticket.status == 'Closed' %}<span class="badge badge-resolution">{{ ticket.resolution or '-' }}</span>{% else %}-{% endif %}</td>
             <td>{% if ticket.status == 'Closed' %}<span class="badge badge-assignee">{{ ticket.assigned_to or '-' }}</span>{% else %}-{% endif %}</td>
             <td><span class="badge badge-urgency badge-urgency-{{ ticket.urgency|lower }}">{{ ticket.urgency or '-' }}</span></td>
@@ -233,6 +240,73 @@
           });
         });
       });
+    </script>
+    <script>
+    // Actions button logic
+    var actionsBtn = document.getElementById('actions-btn');
+    var actionsDropdown = document.getElementById('actions-dropdown');
+    var checkboxes = document.querySelectorAll('input[name="ticket_ids"]');
+    function updateActionsBtn() {
+      var anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+      if (anyChecked) {
+        actionsBtn.style.opacity = '1';
+        actionsBtn.style.background = '#4f8cff';
+        actionsBtn.style.cursor = 'pointer';
+        actionsBtn.disabled = false;
+      } else {
+        actionsBtn.style.opacity = '0.6';
+        actionsBtn.style.background = '#6b7280';
+        actionsBtn.style.cursor = 'not-allowed';
+        actionsBtn.disabled = true;
+        actionsDropdown.style.display = 'none';
+      }
+    }
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', updateActionsBtn);
+    });
+    updateActionsBtn();
+    actionsBtn.addEventListener('click', function(e) {
+      if (!actionsBtn.disabled) {
+        // Position dropdown below button
+        var rect = actionsBtn.getBoundingClientRect();
+        actionsDropdown.style.top = (rect.bottom + window.scrollY + 8) + 'px';
+        actionsDropdown.style.left = (rect.left + window.scrollX) + 'px';
+        actionsDropdown.style.display = actionsDropdown.style.display === 'block' ? 'none' : 'block';
+      }
+    });
+    window.addEventListener('click', function(e) {
+      if (!actionsBtn.contains(e.target) && !actionsDropdown.contains(e.target)) {
+        actionsDropdown.style.display = 'none';
+      }
+    });
+    // Dropdown actions
+    document.getElementById('close-tickets').addEventListener('click', function() {
+      performBulkAction('close');
+    });
+    document.getElementById('open-tickets').addEventListener('click', function() {
+      performBulkAction('open');
+    });
+    document.getElementById('delete-tickets').addEventListener('click', function() {
+      performBulkAction('delete');
+    });
+    function performBulkAction(action) {
+      var selectedIds = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+      if (selectedIds.length === 0) return;
+      if (action === 'delete' && !confirm('Are you sure you want to delete the selected ticket(s)?')) return;
+      fetch('/bulk_ticket_action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, ticket_ids: selectedIds })
+      }).then(r => r.json()).then(data => {
+        if (data.success) {
+          window.location.reload();
+        } else {
+          alert('Error: ' + (data.error || 'Could not perform action.'));
+        }
+      }).catch(() => {
+        alert('Error: Could not perform action.');
+      });
+    }
     </script>
   </div>
 </div>

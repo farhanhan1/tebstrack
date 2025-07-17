@@ -12,6 +12,7 @@
     <tr><th>Assignee</th><td>{% if ticket.status == 'Closed' %}<span class="badge badge-assignee">{{ ticket.assigned_to or '-' }}</span>{% else %}-{% endif %}</td></tr>
     <tr><th>Urgency</th><td><span class="badge badge-urgency badge-urgency-{{ ticket.urgency|lower }}">{{ ticket.urgency or '-' }}</span></td></tr>
     <tr><th>Date of Completion</th><td>{% if ticket.status == 'Closed' %}{{ ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else '-' }}{% else %}-{% endif %}</td></tr>
+    <tr><th>Status</th><td>{{ ticket.status }}</td></tr>
   </table>
   <div class="ticket-thread">
     <h2>Email Thread</h2>

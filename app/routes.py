@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify
 from flask_login import login_user, login_required, logout_user, current_user
-from .models import User, Ticket, db
+from app.models import User, Ticket, db
+from app.models import Log as TicketLog
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from sqlalchemy import func
@@ -111,6 +112,37 @@ def create_ticket():
     description = request.form.get('description')
     if not subject or not category or not urgency or not description:
         return jsonify({'success': False, 'error': 'All fields are required.'})
+    
+@main.route('/bulk_ticket_action', methods=['POST'])
+def bulk_ticket_action():
+    data = request.get_json()
+    action = data.get('action')
+    ticket_ids = data.get('ticket_ids', [])
+    if not ticket_ids or not action:
+        return jsonify({'success': False, 'error': 'Missing ticket IDs or action.'}), 400
+
+    tickets = Ticket.query.filter(Ticket.id.in_(ticket_ids)).all()
+    affected = 0
+    for ticket in tickets:
+        if action == 'close' and ticket.status != 'Closed':
+            ticket.status = 'Closed'
+            db.session.add(TicketLog(user='system', action='Bulk Close', details=f'Ticket closed in bulk for ticket {ticket.id}'))
+            affected += 1
+        elif action == 'open' and ticket.status != 'Open':
+            ticket.status = 'Open'
+            db.session.add(TicketLog(user='system', action='Bulk Open', details=f'Ticket opened in bulk for ticket {ticket.id}'))
+            affected += 1
+        elif action == 'delete':
+            db.session.add(TicketLog(user='system', action='Bulk Delete', details=f'Ticket deleted in bulk for ticket {ticket.id}'))
+            db.session.delete(ticket)
+            affected += 1
+        # Future actions can be added here
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'affected': affected})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
     try:
         ticket = Ticket(
             subject=subject,
@@ -257,7 +289,7 @@ def test_session():
 def tickets():
     # Filters
     month = request.args.get('month')
-    status = request.args.get('status', 'Open')
+    status = request.args.get('status', 'All')
     category = request.args.get('category')
     # Default to current month
     import datetime
