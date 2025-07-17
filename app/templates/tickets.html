@@ -215,13 +215,15 @@
     </form>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        var selectAll = document.getElementById('select-all-tickets');
-        var checkboxes = document.querySelectorAll('input[name="ticket_ids"]');
-        if (selectAll) {
-          selectAll.addEventListener('change', function() {
-            checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
-          });
-        }
+      var selectAll = document.getElementById('select-all-tickets');
+      var checkboxes = document.querySelectorAll('input[name="ticket_ids"]');
+      if (selectAll) {
+        selectAll.addEventListener('change', function() {
+          checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+          // After changing all checkboxes, update the Actions button state
+          updateActionsBtn();
+        });
+      }
         var form = document.getElementById('delete-tickets-form');
         var btns = [
           document.getElementById('delete-tickets-btn'),
