@@ -411,9 +411,38 @@ def tickets():
 def view_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
     all_categories = Category.query.order_by(Category.name).all()
-    from .models import User
+    from .models import User, EmailMessage
     all_users = User.query.order_by(User.username).all()
-    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories, all_users=all_users)
+    # Fetch all EmailMessages for this ticket's thread, ordered by sent_at
+    thread_msgs = []
+    if ticket.thread_id:
+        thread_msgs = EmailMessage.query.filter_by(thread_id=ticket.thread_id).order_by(EmailMessage.sent_at.asc()).all()
+    else:
+        msg = EmailMessage.query.filter_by(ticket_id=ticket.id).first()
+        if msg:
+            thread_msgs = [msg]
+    # Convert attachments JSON string to list for each message
+    for msg in thread_msgs:
+        try:
+            import json
+            msg.attachments = json.loads(msg.attachments) if msg.attachments else []
+        except Exception:
+            msg.attachments = []
+    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories, all_users=all_users, thread_msgs=thread_msgs)
+
+# Route to serve attachments
+import os
+from flask import send_from_directory, abort
+@main.route('/attachments/<path:filename>')
+@login_required
+def serve_attachment(filename):
+    # attachments directory is at the project root
+    # attachments directory is at the project root, not inside app/
+    attachments_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'attachments'))
+    file_path = os.path.join(attachments_dir, filename)
+    if not os.path.isfile(file_path):
+        abort(404)
+    return send_from_directory(attachments_dir, filename, as_attachment=True)
 
 # Admin: Edit Ticket page
 @main.route('/edit_ticket/<int:ticket_id>', methods=['GET', 'POST'])

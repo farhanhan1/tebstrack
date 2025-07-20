@@ -3,6 +3,24 @@ from flask_login import UserMixin
 
 db = SQLAlchemy()
 
+# For email threads and attachments
+import json
+
+class EmailMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey('ticket.id'))
+    thread_id = db.Column(db.String(255))
+    sender = db.Column(db.String(150))
+    subject = db.Column(db.String(255))
+    body = db.Column(db.Text)
+    sent_at = db.Column(db.DateTime)
+    attachments = db.Column(db.Text)  # JSON list of dicts: [{filename, is_image, url}]
+
+    def get_attachments(self):
+        if self.attachments:
+            return json.loads(self.attachments)
+        return []
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)

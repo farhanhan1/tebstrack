@@ -30,7 +30,40 @@
     <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.6rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s; margin-top:1.2rem;">Save</button>
     <div style="margin-top: 2.2rem;">
       <h2 style="margin-top: 0; color: #4f8cff; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.7rem;">Email Thread</h2>
-      <div style="color: #888; font-style: italic; background: #f4f6fb; padding: 1.2rem; border-radius: 8px; border: 1px dashed #b6c6e6; text-align: center;">(Email thread display coming soon)</div>
+      {% if thread_msgs and thread_msgs|length > 0 %}
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          {% for msg in thread_msgs %}
+            <div style="background: #f4f6fb; border-radius: 10px; box-shadow: 0 1px 4px rgba(79,140,255,0.06); padding: 1.1rem 1.3rem;">
+              <div style="margin-bottom: 0.3rem; color: #2563eb; font-weight: 700; font-size: 1.05rem;">
+                {{ msg.sender }} <span style="color:#888; font-weight:400; font-size:0.98em;">({{ msg.sent_at.strftime('%Y-%m-%d %H:%M') if msg.sent_at else '' }})</span>
+              </div>
+              <div style="margin-bottom: 0.7rem; color: #2d3a4b; white-space: pre-wrap;">{{ msg.body|safe }}</div>
+              {% if msg.attachments and msg.attachments|length > 0 %}
+                <div style="margin-top:0.7rem;">
+                  <span style="font-weight:600; color:#4f8cff;">Attachments:</span>
+                  <ul style="list-style:none; padding-left:0; margin:0;">
+                    {% for att in msg.attachments %}
+                      <li style="margin-bottom:0.3em;">
+                        {% set att_filename = att.url.split('/')[-1] if '/' in att.url else att.url %}
+                        {% if att.is_image %}
+                          <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
+                          <br>
+                          <img src="{{ url_for('main.serve_attachment', filename=att_filename) }}" alt="{{ att.filename }}" style="max-width:220px; max-height:120px; margin-top:0.3em; border-radius:6px; border:1px solid #e5e7eb;">
+                        {% else %}
+                          <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
+                          <span style="color:#888; font-size:0.97em;">(Download)</span>
+                        {% endif %}
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="color: #888; font-style: italic; background: #f4f6fb; padding: 1.2rem; border-radius: 8px; border: 1px dashed #b6c6e6; text-align: center;">(No email thread found for this ticket)</div>
+      {% endif %}
     </div>
   </div>
 </form>
