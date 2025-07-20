@@ -43,9 +43,63 @@
                 {% endif %}
                 <span style="color:#888; font-weight:400; font-size:0.98em;">({{ msg.sent_at.strftime('%Y-%m-%d %H:%M') if msg.sent_at else '' }})</span>
               </div>
-              <div style="margin-bottom: 0.7rem; color: #2d3a4b; white-space: pre-wrap;">
-                {{ msg.body | safe }}
+              <div style="margin-bottom: 0.7rem; color: #2d3a4b;">
+                {% macro collapse_blanklines_preserve(text) %}
+                  {%- set lines = text.split('\n') -%}
+                  {%- set result = [] -%}
+                  {%- set blank = false -%}
+                  {%- for line in lines -%}
+                    {%- if line.strip() == '' -%}
+                      {%- if not blank -%}
+                        {%- set _ = result.append('') -%}
+                        {%- set blank = true -%}
+                      {%- endif -%}
+                    {%- else -%}
+                      {%- set _ = result.append(line.rstrip()) -%}
+                      {%- set blank = false -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                  {{- result|join('\n')|trim|replace('\n', '<br>')|safe -}}
+                {% endmacro %}
+                {% set quoted_split = msg.body.split('\n________________________________', 1) %}
+                {% if quoted_split|length == 2 %}
+                  <div>{{ quoted_split[0]|trim|replace('\n', '<br>')|safe }}</div>
+                  <div>
+                    <a href="#" class="toggle-history" onclick="toggleHistory(this); return false;" style="color:#2563eb; font-size:0.97em; text-decoration:underline; cursor:pointer;">Show message history</a>
+                    <div class="message-history" style="display:none; margin-top:0.5em; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb; padding:0.7em 1em; color:#888; font-size:0.97em;">
+                      __________________________________<br>{{ collapse_blanklines_preserve(quoted_split[1]) }}
+                    </div>
+                  </div>
+                {% else %}
+                  {% set wrote_idx = msg.body.find('\nOn ') %}
+                  {% set wrote_pat = '\nwrote:' %}
+                  {% set wrote_end = msg.body.find(wrote_pat, wrote_idx+1) if wrote_idx != -1 else -1 %}
+                  {% if wrote_idx != -1 and wrote_end != -1 %}
+                    <div>{{ msg.body[:wrote_idx]|trim|replace('\n', '<br>')|safe }}</div>
+                    <div>
+                      <a href="#" class="toggle-history" onclick="toggleHistory(this); return false;" style="color:#2563eb; font-size:0.97em; text-decoration:underline; cursor:pointer;">Show message history</a>
+                      <div class="message-history" style="display:none; margin-top:0.5em; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb; padding:0.7em 1em; color:#888; font-size:0.97em;">
+                        {{ collapse_blanklines_preserve(msg.body[wrote_idx:]) }}
+                      </div>
+                    </div>
+                  {% else %}
+                    {{ msg.body|replace('\n', '<br>')|safe }}
+                  {% endif %}
+                {% endif %}
               </div>
+</script>
+<script>
+function toggleHistory(link) {
+  var hist = link.parentElement.querySelector('.message-history');
+  if (hist.style.display === 'none') {
+    hist.style.display = 'block';
+    link.textContent = 'Hide message history';
+  } else {
+    hist.style.display = 'none';
+    link.textContent = 'Show message history';
+  }
+}
+</script>
               {% if msg.attachments and msg.attachments|length > 0 %}
                 <div style="margin-top:0.7rem;">
                   <span style="font-weight:600; color:#4f8cff;">Attachments:</span>
