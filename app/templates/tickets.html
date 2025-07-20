@@ -213,7 +213,7 @@
             <td><span class="badge badge-requestor">{{ ticket.sender or '-' }}</span></td>
             <td>{{ ticket.status }}</td>
             <td>{% if ticket.status == 'Closed' %}<span class="badge badge-resolution">{{ ticket.resolution or '-' }}</span>{% else %}-{% endif %}</td>
-            <td>{% if ticket.status == 'Closed' %}<span class="badge badge-assignee">{{ user_map[ticket.assigned_to] if ticket.assigned_to and ticket.assigned_to in user_map else '-' }}</span>{% else %}-{% endif %}</td>
+            <td><span class="badge badge-assignee">{{ user_map[ticket.assigned_to] if ticket.assigned_to and ticket.assigned_to in user_map else '-' }}</span></td>
             <td>
               {% set urgency_styles = {
                 'low': 'background:#d1fae5; color:#059669;',

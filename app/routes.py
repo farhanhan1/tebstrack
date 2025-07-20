@@ -391,6 +391,7 @@ def tickets():
     all_categories = sorted(set([t.category for t in Ticket.query if t.category]))
     all_statuses = ['Open', 'Closed', 'All']
 
+    user_map = {u.id: u.username for u in User.query.all()}
     return render_template('tickets.html',
         tickets=tickets,
         month=month,
@@ -401,7 +402,8 @@ def tickets():
         all_statuses=all_statuses,
         tickets_raised=tickets_raised,
         most_common_category=most_common_category,
-        most_common_requestor=most_common_requestor
+        most_common_requestor=most_common_requestor,
+        user_map=user_map
     )
 
 @main.route('/viewticket/<int:ticket_id>')
@@ -409,7 +411,9 @@ def tickets():
 def view_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
     all_categories = Category.query.order_by(Category.name).all()
-    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories)
+    from .models import User
+    all_users = User.query.order_by(User.username).all()
+    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories, all_users=all_users)
 
 # Admin: Edit Ticket page
 @main.route('/edit_ticket/<int:ticket_id>', methods=['GET', 'POST'])
