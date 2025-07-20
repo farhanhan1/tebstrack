@@ -1,3 +1,4 @@
+import logging
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify, send_from_directory
 from flask_login import login_user, login_required, logout_user, current_user
@@ -187,7 +188,26 @@ def create_ticket():
     description = request.form.get('description')
     if not subject or not category or not urgency or not description:
         return jsonify({'success': False, 'error': 'All fields are required.'})
-    
+    try:
+        ticket = Ticket(
+            subject=subject,
+            category=category,
+            urgency=urgency,
+            description=description,
+            sender=current_user.username if hasattr(current_user, 'username') else 'Unknown',
+            status='Open',
+            created_at=datetime.datetime.now()
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        from .models import Log
+        log = Log(user=current_user.username, action='create_ticket', details=f"Created ticket '{ticket.subject}' (ID: {ticket.id})")
+        db.session.add(log)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 @main.route('/bulk_ticket_action', methods=['POST'])
 def bulk_ticket_action():
     data = request.get_json()
@@ -198,20 +218,33 @@ def bulk_ticket_action():
 
     tickets = Ticket.query.filter(Ticket.id.in_(ticket_ids)).all()
     affected = 0
+    from flask_login import current_user
+    username = current_user.username if hasattr(current_user, 'username') else 'Unknown'
+    debug_info = {}
+    from app.models import EmailMessage
+    deleted_email_count = 0
     for ticket in tickets:
         if action == 'close' and ticket.status != 'Closed':
             ticket.status = 'Closed'
-            db.session.add(TicketLog(user='system', action='Bulk Close', details=f'Ticket closed in bulk for ticket {ticket.id}'))
+            db.session.add(TicketLog(user=username, action='Bulk Close', details=f'Ticket closed in bulk for ticket {ticket.id}'))
             affected += 1
         elif action == 'open' and ticket.status != 'Open':
             ticket.status = 'Open'
-            db.session.add(TicketLog(user='system', action='Bulk Open', details=f'Ticket opened in bulk for ticket {ticket.id}'))
+            db.session.add(TicketLog(user=username, action='Bulk Open', details=f'Ticket opened in bulk for ticket {ticket.id}'))
             affected += 1
         elif action == 'delete':
-            db.session.add(TicketLog(user='system', action='Bulk Delete', details=f'Ticket deleted in bulk for ticket {ticket.id}'))
+            # Delete related EmailMessages
+            count = EmailMessage.query.filter(EmailMessage.ticket_id == ticket.id).delete(synchronize_session=False)
+            deleted_email_count += count
+            db.session.add(TicketLog(user=username, action='Bulk Delete', details=f'Ticket deleted in bulk for ticket {ticket.id} (deleted {count} related emails)'))
             db.session.delete(ticket)
             affected += 1
         # Future actions can be added here
+    if action == 'delete':
+        debug_info['deleted_email_count'] = deleted_email_count
+        debug_info['deleted_ticket_count'] = affected
+        print(f"[DEBUG] Bulk delete: {debug_info}", flush=True)
+        logging.warning(f"[DEBUG] Bulk delete: {debug_info}")
     try:
         db.session.commit()
         return jsonify({'success': True, 'affected': affected})
@@ -261,10 +294,26 @@ def delete_tickets():
     if not ids and request.is_json:
         ids = request.get_json().get('ticket_ids', [])
     if ids:
-        Ticket.query.filter(Ticket.id.in_(ids)).delete(synchronize_session=False)
+        from app.models import EmailMessage, Ticket
+        # Convert ids to integers to avoid type mismatch
+        ticket_ids = [int(i) for i in ids]
+        # Debug info
+        debug_info = {}
+        debug_info['ticket_ids'] = ticket_ids
+        # Delete all EmailMessages with ticket_id in ticket_ids
+        deleted_emails = EmailMessage.query.filter(EmailMessage.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
+        debug_info['deleted_emails'] = deleted_emails
+        # Now delete the tickets
+        deleted_tickets = Ticket.query.filter(Ticket.id.in_(ticket_ids)).delete(synchronize_session=False)
+        debug_info['deleted_tickets'] = deleted_tickets
+        # Use both print and logging to ensure output appears in VS Code
+        print(f"[DEBUG] Ticket deletion: {debug_info}", flush=True)
+        logging.warning(f"[DEBUG] Ticket deletion: {debug_info}")
+        # If you still do not see output, run Flask with unbuffered output:
+        #   python -u run.py
         db.session.commit()
         if request.is_json:
-            return jsonify({'success': True})
+            return jsonify({'success': True, 'debug': debug_info})
     if request.is_json:
         return jsonify({'success': False, 'error': 'No ticket IDs provided.'})
     return redirect(url_for('main.tickets'))
