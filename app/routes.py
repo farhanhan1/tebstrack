@@ -388,7 +388,7 @@ def tickets():
     # Get all months for dropdown (YYYY-MM format) from tickets in DB
     from sqlalchemy import func
     all_months = [m[0] for m in db.session.query(func.strftime('%Y-%m', Ticket.created_at)).distinct().order_by(func.strftime('%Y-%m', Ticket.created_at).desc()).all()]
-    all_categories = sorted(set([t.category for t in Ticket.query if t.category]))
+    all_categories = [c.name for c in Category.query.order_by(Category.name).all()]
     all_statuses = ['Open', 'Closed', 'All']
 
     user_map = {u.id: u.username for u in User.query.all()}
@@ -424,16 +424,44 @@ def edit_ticket(ticket_id):
         return redirect(url_for('main.index'))
     infra_users = User.query.filter_by(role='infra').order_by(User.username).all()
     if request.method == 'POST':
-        ticket.subject = request.form.get('subject', ticket.subject)
-        ticket.category = request.form.get('category', ticket.category)
-        ticket.urgency = request.form.get('urgency', ticket.urgency)
-        ticket.status = request.form.get('status', ticket.status)
-        ticket.description = request.form.get('description', ticket.description)
-        assigned_to = request.form.get('assigned_to')
-        ticket.assigned_to = int(assigned_to) if assigned_to else None
+        changes = []
+        old = {
+            'subject': ticket.subject,
+            'category': ticket.category,
+            'urgency': ticket.urgency,
+            'status': ticket.status,
+            'description': ticket.description,
+            'assigned_to': ticket.assigned_to
+        }
+        new = {
+            'subject': request.form.get('subject', ticket.subject),
+            'category': request.form.get('category', ticket.category),
+            'urgency': request.form.get('urgency', ticket.urgency),
+            'status': request.form.get('status', ticket.status),
+            'description': request.form.get('description', ticket.description),
+            'assigned_to': int(request.form.get('assigned_to')) if request.form.get('assigned_to') else None
+        }
+        # For assigned_to, show username if possible
+        user_map = {u.id: u.username for u in User.query.all()}
+        for field in old:
+            old_val = old[field]
+            new_val = new[field]
+            if field == 'assigned_to':
+                old_disp = user_map.get(old_val, '-') if old_val else '-'
+                new_disp = user_map.get(new_val, '-') if new_val else '-'
+            else:
+                old_disp = old_val if old_val is not None else '-'
+                new_disp = new_val if new_val is not None else '-'
+            if old_val != new_val:
+                changes.append(f"{field} changed from '{old_disp}' to '{new_disp}'")
+                setattr(ticket, field, new_val)
         db.session.commit()
         from .models import Log
-        log = Log(user=current_user.username, action='edit_ticket', details=f"Edited ticket '{ticket.subject}' (ID: {ticket.id})")
+        if changes:
+            details = f"Edited ticket '{ticket.subject}' (ID: {ticket.id}):\n" + "; ".join(changes)
+        else:
+            details = f"Edited ticket '{ticket.subject}' (ID: {ticket.id}): No changes."
+        log = Log(user=current_user.username, action='edit_ticket', details=details)
         db.session.add(log)
         db.session.commit()
         return redirect(url_for('main.tickets'))
