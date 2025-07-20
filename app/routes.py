@@ -415,20 +415,58 @@ def view_ticket(ticket_id):
     all_users = User.query.order_by(User.username).all()
     # Fetch all EmailMessages for this ticket's thread, ordered by sent_at
     thread_msgs = []
+    import os
+    GMAIL_USER = os.environ.get('GMAIL_USER', 'tebstrack@gmail.com').lower()
+    from sqlalchemy import or_, and_
     if ticket.thread_id:
-        thread_msgs = EmailMessage.query.filter_by(thread_id=ticket.thread_id).order_by(EmailMessage.sent_at.asc()).all()
+        # Build the set of message_ids in the thread chain
+        all_msgs = EmailMessage.query.filter(
+            EmailMessage.thread_id == ticket.thread_id
+        ).order_by(EmailMessage.sent_at.desc()).all()
+        # Build a map of message_id -> EmailMessage
+        msg_map = {m.message_id: m for m in all_msgs if m.message_id}
+        # Find the root message (the one with in_reply_to=None or not in msg_map)
+        root_msgs = [m for m in all_msgs if not m.in_reply_to or m.in_reply_to not in msg_map]
+        thread_chain = []
+        # For each root, walk the chain
+        for root in root_msgs:
+            chain = []
+            current = root
+            while current:
+                chain.append(current)
+                # Find the next message that replies to this one
+                next_msg = None
+                for m in all_msgs:
+                    if m.in_reply_to and m.in_reply_to == current.message_id:
+                        next_msg = m
+                        break
+                current = next_msg
+            thread_chain.extend(chain)
+        # Remove duplicates and sort by sent_at
+        seen_ids = set()
+        thread_msgs = []
+        for m in sorted(thread_chain, key=lambda x: x.sent_at, reverse=True):
+            if m.id not in seen_ids:
+                thread_msgs.append(m)
+                seen_ids.add(m.id)
     else:
         msg = EmailMessage.query.filter_by(ticket_id=ticket.id).first()
         if msg:
             thread_msgs = [msg]
-    # Convert attachments JSON string to list for each message
+    # Convert attachments JSON string to list for each message, and mark if sent by GMAIL_USER
+    import re
     for msg in thread_msgs:
         try:
             import json
             msg.attachments = json.loads(msg.attachments) if msg.attachments else []
         except Exception:
             msg.attachments = []
-    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories, all_users=all_users, thread_msgs=thread_msgs)
+        msg.is_self = (msg.sender or '').strip().lower() == GMAIL_USER
+        # Remove quoted message history (e.g., lines starting with 'On ... wrote:')
+        if msg.body:
+            # Remove everything from the first occurrence of a quoted reply marker
+            msg.body = re.split(r'\n?On .+wrote:', msg.body)[0].strip()
+    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories, all_users=all_users, thread_msgs=thread_msgs, GMAIL_USER=GMAIL_USER)
 
 # Route to serve attachments
 import os

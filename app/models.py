@@ -15,6 +15,8 @@ class EmailMessage(db.Model):
     body = db.Column(db.Text)
     sent_at = db.Column(db.DateTime)
     attachments = db.Column(db.Text)  # JSON list of dicts: [{filename, is_image, url}]
+    message_id = db.Column(db.String(255), nullable=True)
+    in_reply_to = db.Column(db.String(255), nullable=True)
 
     def get_attachments(self):
         if self.attachments:

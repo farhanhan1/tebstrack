@@ -31,13 +31,21 @@
     <div style="margin-top: 2.2rem;">
       <h2 style="margin-top: 0; color: #4f8cff; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.7rem;">Email Thread</h2>
       {% if thread_msgs and thread_msgs|length > 0 %}
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-          {% for msg in thread_msgs %}
+        <div style="display: flex; flex-direction: column-reverse; gap: 1.5rem;">
+          {% for msg in thread_msgs|reverse %}
             <div style="background: #f4f6fb; border-radius: 10px; box-shadow: 0 1px 4px rgba(79,140,255,0.06); padding: 1.1rem 1.3rem;">
               <div style="margin-bottom: 0.3rem; color: #2563eb; font-weight: 700; font-size: 1.05rem;">
-                {{ msg.sender }} <span style="color:#888; font-weight:400; font-size:0.98em;">({{ msg.sent_at.strftime('%Y-%m-%d %H:%M') if msg.sent_at else '' }})</span>
+                {% if msg.is_self %}
+                  <span style="color:#059669; font-weight:700;">You</span>
+                  <span style="color:#888; font-weight:400; font-size:0.98em;">({{ msg.sender }})</span>
+                {% else %}
+                  {{ msg.sender }}
+                {% endif %}
+                <span style="color:#888; font-weight:400; font-size:0.98em;">({{ msg.sent_at.strftime('%Y-%m-%d %H:%M') if msg.sent_at else '' }})</span>
               </div>
-              <div style="margin-bottom: 0.7rem; color: #2d3a4b; white-space: pre-wrap;">{{ msg.body|safe }}</div>
+              <div style="margin-bottom: 0.7rem; color: #2d3a4b; white-space: pre-wrap;">
+                {{ msg.body | safe }}
+              </div>
               {% if msg.attachments and msg.attachments|length > 0 %}
                 <div style="margin-top:0.7rem;">
                   <span style="font-weight:600; color:#4f8cff;">Attachments:</span>
