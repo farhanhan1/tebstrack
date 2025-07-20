@@ -101,11 +101,11 @@
     <button type="button" id="open-create-ticket-modal" class="create-ticket-btn" style="margin-left:0.5rem; background:#2563eb; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(37,99,235,0.08); text-decoration: none; display: inline-block; transition: background 0.2s;">Create</button>
     <button id="refresh-emails-btn" style="margin-left:0.5rem; background:#059669; color:#fff; border:none; border-radius:8px; padding:0.38rem 1.1rem; font-weight:700; font-size:1rem; box-shadow:0 1px 4px rgba(5,150,105,0.08); cursor:pointer; align-self:center; transition:background 0.2s;">Refresh</button>
   </form>
-  <div id="actions-dropdown" style="display:none; position:fixed; background:#fff; box-shadow:0 8px 24px rgba(44,62,80,0.18); border-radius:10px; min-width:190px; z-index:9999; flex-direction:column; border:1px solid #e5e7eb; padding:0.3rem 0;">
+  <div id="actions-dropdown" style="display:none; position:fixed; background:#fff; box-shadow:0 8px 24px rgba(44,62,80,0.18); border-radius:10px; min-width:140px; max-width:150px; z-index:9999; flex-direction:column; border:1px solid #e5e7eb; padding:0.15rem 0;">
     <div style="position:absolute; top:-10px; left:18px; width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:10px solid #fff; z-index:10000;"></div>
-    <button type="button" class="actions-dropdown-item" id="close-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.8rem 1.2rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Close Selected</button>
-    <button type="button" class="actions-dropdown-item" id="open-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.8rem 1.2rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Open Selected</button>
-    <button type="button" class="actions-dropdown-item" id="delete-tickets" style="width:100%; background:none; border:none; color:#dc2626; padding:0.8rem 1.2rem; text-align:left; font-size:1rem; cursor:pointer;">Delete Selected</button>
+    <button type="button" class="actions-dropdown-item" id="close-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Close Selected</button>
+    <button type="button" class="actions-dropdown-item" id="open-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Open Selected</button>
+    <button type="button" class="actions-dropdown-item" id="delete-tickets" style="width:100%; background:none; border:none; color:#dc2626; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer;">Delete Selected</button>
   </div>
   <!-- Removed duplicate refresh button script. Only the version with window.__refreshSuccess remains above. -->
   <div class="tickets-table-wrapper">
