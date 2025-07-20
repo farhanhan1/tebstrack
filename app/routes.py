@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify
+
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify, send_from_directory
 from flask_login import login_user, login_required, logout_user, current_user
 from app.models import User, Ticket, db, Category
 from app.models import Log as TicketLog
@@ -9,6 +10,11 @@ import datetime
 from .fetch_emails_util import fetch_and_store_emails
 
 main = Blueprint('main', __name__)
+
+# Favicon route (must be after Blueprint definition)
+@main.route('/favicon.ico')
+def favicon():
+    return send_from_directory(current_app.root_path + '/../lib', 'tebstrack.ico', mimetype='image/vnd.microsoft.icon')
 
 # ...existing code...
 
