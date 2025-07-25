@@ -1,0 +1,129 @@
+@startuml TeBSTrack_Level1_DataFlowDiagram
+
+title TeBSTrack System - Level 1 Data Flow Diagram
+
+skinparam defaultFontSize 10
+skinparam componentFontSize 9
+skinparam actorFontSize 9
+
+' External Entities
+actor "Admin Users" as AdminUser #lightblue
+actor "Infra Users" as InfraUser #lightblue
+actor "Email System\n(Gmail IMAP)" as EmailSystem #lightgreen
+actor "Web Browsers" as WebBrowser #lightgreen
+
+' Main Processes
+circle "1.0\nUser Authentication\n& Authorization" as AuthProcess #lightyellow
+circle "2.0\nTicket Management\n(CRUD Operations)" as TicketProcess #lightyellow
+circle "3.0\nEmail Processing\n& Integration" as EmailProcess #lightyellow
+circle "4.0\nUser Management\n(Admin Only)" as UserMgmtProcess #lightyellow
+circle "5.0\nCategory\nManagement" as CategoryProcess #lightyellow
+circle "6.0\nAudit Logging" as AuditProcess #lightyellow
+circle "7.0\nDashboard\n& Reporting" as DashboardProcess #lightyellow
+
+' Data Stores
+storage "D1\nUsers\nDatabase" as UsersDB #lightcoral
+storage "D2\nTickets\nDatabase" as TicketsDB #lightcoral
+storage "D3\nCategories\nDatabase" as CategoriesDB #lightcoral
+storage "D4\nAudit Logs\nDatabase" as AuditDB #lightcoral
+storage "D5\nEmail Messages\nDatabase" as EmailDB #lightcoral
+storage "D6\nAttachments\nStorage" as AttachmentsStore #lightcoral
+
+' Position entities to avoid overlap
+AdminUser -[hidden]down- InfraUser
+EmailSystem -[hidden]down- WebBrowser
+
+AuthProcess -[hidden]right- TicketProcess
+TicketProcess -[hidden]right- EmailProcess
+EmailProcess -[hidden]right- UserMgmtProcess
+UserMgmtProcess -[hidden]down- CategoryProcess
+CategoryProcess -[hidden]left- AuditProcess
+AuditProcess -[hidden]left- DashboardProcess
+
+UsersDB -[hidden]right- TicketsDB
+TicketsDB -[hidden]right- CategoriesDB
+CategoriesDB -[hidden]down- AuditDB
+AuditDB -[hidden]left- EmailDB
+EmailDB -[hidden]left- AttachmentsStore
+
+' Data Flows from External Entities to Processes
+
+' Admin User flows
+AdminUser --> AuthProcess : Login credentials
+AdminUser --> TicketProcess : Create/Edit/Delete tickets
+AdminUser --> UserMgmtProcess : Manage user accounts
+AdminUser --> CategoryProcess : Manage categories
+AdminUser --> DashboardProcess : Request reports/analytics
+
+' Infra User flows  
+InfraUser --> AuthProcess : Login credentials
+InfraUser --> TicketProcess : View/Update assigned tickets
+InfraUser --> DashboardProcess : View dashboard
+
+' Email System flows
+EmailSystem --> EmailProcess : Incoming emails\n(IMAP fetch)
+EmailProcess --> EmailSystem : Outbound email responses
+
+' Web Browser flows
+WebBrowser --> AuthProcess : HTTP requests\n(login/logout)
+WebBrowser --> TicketProcess : HTTP requests\n(ticket operations)
+WebBrowser --> UserMgmtProcess : HTTP requests\n(user management)
+WebBrowser --> CategoryProcess : HTTP requests\n(category management)
+WebBrowser --> DashboardProcess : HTTP requests\n(dashboard/reports)
+WebBrowser --> AuditProcess : HTTP requests\n(audit logs)
+
+' Process to Data Store flows
+
+' Authentication Process
+AuthProcess <--> UsersDB : User credentials\nvalidation
+AuthProcess --> AuditDB : Login/logout events
+
+' Ticket Management Process
+TicketProcess <--> TicketsDB : Ticket CRUD operations
+TicketProcess <--> CategoriesDB : Category assignments
+TicketProcess <--> UsersDB : User assignments
+TicketProcess --> AuditDB : Ticket operations log
+TicketProcess <--> EmailDB : Email thread association
+
+' Email Processing
+EmailProcess --> TicketsDB : New tickets from emails
+EmailProcess --> EmailDB : Email message storage
+EmailProcess <--> AttachmentsStore : Email attachments
+EmailProcess --> AuditDB : Email processing events
+
+' User Management Process
+UserMgmtProcess <--> UsersDB : User CRUD operations
+UserMgmtProcess --> AuditDB : User management events
+
+' Category Management Process
+CategoryProcess <--> CategoriesDB : Category CRUD operations
+CategoryProcess --> AuditDB : Category management events
+CategoryProcess --> TicketsDB : Category updates
+
+' Audit Logging Process
+AuditProcess <--> AuditDB : Audit log entries
+AuditProcess <-- UsersDB : User information for logs
+
+' Dashboard and Reporting Process
+DashboardProcess <-- TicketsDB : Ticket statistics
+DashboardProcess <-- UsersDB : User statistics
+DashboardProcess <-- CategoriesDB : Category statistics  
+DashboardProcess <-- AuditDB : Activity reports
+DashboardProcess <-- EmailDB : Email thread data
+
+' Inter-Process Data Flows
+TicketProcess --> AuditProcess : Ticket events for logging
+UserMgmtProcess --> AuditProcess : User management events
+CategoryProcess --> AuditProcess : Category events
+EmailProcess --> AuditProcess : Email processing events
+AuthProcess --> AuditProcess : Authentication events
+
+' Return flows to External Entities
+AuthProcess --> WebBrowser : Authentication status
+TicketProcess --> WebBrowser : Ticket data/responses
+UserMgmtProcess --> WebBrowser : User management responses
+CategoryProcess --> WebBrowser : Category data/responses
+DashboardProcess --> WebBrowser : Dashboard/reports data
+AuditProcess --> WebBrowser : Audit log data
+
+@enduml
