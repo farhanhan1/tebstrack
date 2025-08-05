@@ -16,8 +16,15 @@ login_manager.login_view = 'main.login'
 
 
 def create_app():
+
     app = Flask(__name__)
     app.config.from_object('config.Config')
+
+    # --- Session Security Settings ---
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JS access to session cookie
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Restrict cross-site requests
+    # app.config['SESSION_COOKIE_SECURE'] = True  # Uncomment when using HTTPS
+    # Ensure SECRET_KEY is strong and unpredictable in config.py or .env
 
     # Initialize CSRF protection
     csrf = CSRFProtect()
