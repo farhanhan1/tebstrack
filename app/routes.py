@@ -401,9 +401,14 @@ def login():
     ip = request.remote_addr
     now_ts = time.time()
     attempt = LoginAttempt.query.filter_by(ip=ip).first()
+    from app.models import Log
     if attempt and attempt.lockout_until and now_ts < attempt.lockout_until:
         flash('Too many failed login attempts. Try again later.', 'error')
         logging.warning(f"Locked out login attempt from {ip}")
+        # Log to DB
+        log = Log(user=ip, action='login_lockout', details=f"Locked out login attempt from {ip}")
+        db.session.add(log)
+        db.session.commit()
         return render_template('login.html', form=form)
     # Reset fail count if lockout expired
     if attempt and attempt.lockout_until and now_ts >= attempt.lockout_until:
@@ -417,6 +422,10 @@ def login():
         # Backend input validation: reject empty or whitespace-only username/password
         if not username or not password or username.isspace() or password.isspace():
             flash('Invalid username or password.', 'error')
+            logging.warning(f"Login input validation failed from {ip} (username: '{username}')")
+            log = Log(user=ip, action='login_input_invalid', details=f"Input validation failed (username: '{username}')")
+            db.session.add(log)
+            db.session.commit()
             return render_template('login.html', form=form)
         # Optionally: add regex for allowed characters here
         user = User.query.filter_by(username=username).first()
@@ -429,6 +438,9 @@ def login():
                 attempt.lockout_until = 0
                 db.session.commit()
             logging.info(f"Login success for {username} from {ip}")
+            log = Log(user=username, action='login_success', details=f"Login success from {ip}")
+            db.session.add(log)
+            db.session.commit()
             return redirect(url_for('main.index'))
         else:
             # Brute force: increment fail count in DB
@@ -443,10 +455,16 @@ def login():
                 db.session.commit()
                 flash('Too many failed login attempts. Try again later.', 'error')
                 logging.warning(f"Account lockout for {username} from {ip}")
+                log = Log(user=username, action='login_lockout', details=f"Account lockout from {ip}")
+                db.session.add(log)
+                db.session.commit()
             else:
                 db.session.commit()
                 flash(f'Login failed. {attempts_left} attempt(s) left before lockout.', 'error')
                 logging.warning(f"Login failed for {username} from {ip} (attempt {attempt.fail_count})")
+                log = Log(user=username, action='login_failed', details=f"Login failed from {ip} (attempt {attempt.fail_count})")
+                db.session.add(log)
+                db.session.commit()
             return render_template('login.html', form=form)
     # Always pass form to template
     return render_template('login.html', form=form)
@@ -454,6 +472,11 @@ def login():
 @main.route('/logout')
 @login_required
 def logout():
+    from app.models import Log
+    username = current_user.username if hasattr(current_user, 'username') else 'Unknown'
+    log = Log(user=username, action='logout', details=f"User {username} logged out.")
+    db.session.add(log)
+    db.session.commit()
     logout_user()
     flash('You have successfully logged out!', 'info')
     return redirect(url_for('main.login'))
