@@ -2,7 +2,7 @@
 import logging
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify, send_from_directory
-from flask_wtf import FlaskForm, CSRFProtect
+from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField
 from wtforms.validators import DataRequired, Length
 from flask_login import login_user, login_required, logout_user, current_user
@@ -13,8 +13,7 @@ from functools import wraps
 from sqlalchemy import func
 import datetime
 from .fetch_emails_util import fetch_and_store_emails
-
-csrf = CSRFProtect()
+from app.extensions import csrf
 main = Blueprint('main', __name__)
 
 # Flask-WTF LoginForm for CSRF and validation
@@ -285,14 +284,16 @@ def bulk_ticket_action():
 
 
 # Fetch emails endpoint (must be after main is defined)
+
 @main.route('/fetch_emails', methods=['POST'])
 @login_required
+@csrf.exempt
 def fetch_emails():
     try:
         count = fetch_and_store_emails()
-        return jsonify({'success': True, 'new_tickets': count})
+        return jsonify({'success': True, 'new_tickets': count}), 200
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 200
 
 
 

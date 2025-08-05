@@ -7,7 +7,7 @@ load_dotenv()  # <- force load environment before anything else
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from .routes import main
-from flask_wtf import CSRFProtect
+from app.extensions import csrf
 from .models import db
 
 login_manager = LoginManager()
@@ -27,7 +27,6 @@ def create_app():
     # Ensure SECRET_KEY is strong and unpredictable in config.py or .env
 
     # Initialize CSRF protection
-    csrf = CSRFProtect()
     csrf.init_app(app)
 
     db.init_app(app)
