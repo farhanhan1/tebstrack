@@ -1,0 +1,215 @@
+@startuml TeBSTrack System Architecture (with Future Integrations)
+
+!define AWSPUML https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v15.0/dist
+!include AWSPUML/AWSCommon.puml
+
+!theme plain
+skinparam linetype ortho
+skinparam componentBackgroundColor lightblue
+skinparam databaseBackgroundColor lightgreen
+skinparam queueBackgroundColor lightyellow
+skinparam actorBackgroundColor lightcoral
+skinparam minClassWidth 100
+skinparam padding 10
+
+title TeBSTrack System Architecture Diagram
+
+' === EXTERNAL ACTORS ===
+actor "Infrastructure\nUsers" as InfraUsers #lightcoral
+actor "Admin\nUsers" as AdminUsers #lightcoral
+cloud "Gmail\nIMAP" as GmailIMAP #lightgray
+
+' === PRESENTATION LAYER ===
+package "Presentation Layer" as PresentationLayer #aliceblue {
+  component [Web Browser] as Browser #lightblue
+  component [HTML Templates] as Templates #lightblue
+  component [Static Assets] as StaticAssets #lightblue
+}
+
+' === WEB APPLICATION LAYER ===
+package "Flask Application" as FlaskApp #lavender {
+  component [Flask Core] as FlaskCore #lightblue
+  component [Authentication] as Auth #lightblue
+  component [Route Handlers] as Routes #lightblue
+  component [Session Mgmt] as SessionMgmt #lightblue
+}
+
+' === BUSINESS LOGIC LAYER ===
+package "Business Logic" as BusinessLogic #mistyrose {
+  component [User Service] as UserService #lightblue
+  component [Ticket Service] as TicketService #lightblue
+  component [Email Service] as EmailService #lightblue
+  component [Category Service] as CategoryService #lightblue
+  component [Analytics Service] as AnalyticsService #lightblue
+  component [Audit Service] as AuditService #lightblue
+}
+
+' === DATA ACCESS LAYER ===
+package "Data Access" as DataLayer #honeydew {
+  component [SQLAlchemy ORM] as ORM #lightblue
+  component [Data Models] as Models #lightblue
+  component [Migrations] as Migrations #lightblue
+}
+
+' === DATA STORAGE LAYER ===
+package "Data Storage" as DataStorage #lemonchiffon {
+  database "SQLite DB" as SQLiteDB #lightgreen {
+    entity Users
+    entity Tickets  
+    entity Categories
+    entity Emails
+    entity Logs
+  }
+  folder "File System" as FileSystem #lightgreen {
+    folder Attachments
+    folder Static
+    folder Templates_Dir
+  }
+}
+
+' === EXTERNAL INTEGRATIONS ===
+package "Email Integration" as ExternalServices #lightcyan {
+  component [Email Fetcher] as EmailFetcher #lightblue
+  component [IMAP Client] as IMAPClient #lightblue
+  component [Email Parser] as EmailParser #lightblue
+  component [Attachment Proc] as AttachmentProcessor #lightblue
+}
+
+' === SYSTEM UTILITIES ===
+package "System Utils" as SystemUtils #wheat {
+  component [Password Hash] as PasswordHash #lightblue
+  component [Session Valid] as SessionValidator #lightblue
+  component [Logging] as LoggingSystem #lightblue
+  component [Error Handler] as ErrorHandler #lightblue
+}
+
+' === FUTURE: AI/LLM CLASSIFICATION ENGINE ===
+package "AI/LLM Ticket Classification Engine" as AILLM #orchid {
+  component [LLM Client/API] as LLMClient #plum
+  component [Prompt Engineering] as PromptEng #plum
+  component [Classification Logic] as ClassifyLogic #plum
+}
+
+' === FUTURE: AUTOMATION TRIGGER ENGINE ===
+package "Automation Trigger Engine" as AutomationEngine #khaki {
+  component [Trigger Dispatcher] as TriggerDispatcher #gold
+  component [Script Executor] as ScriptExec #gold
+  component [Category Handlers] as CatHandlers #gold
+}
+
+' ========================================
+' === DATA FLOW CONNECTIONS ===
+' ========================================
+
+' === USER INTERACTIONS ===
+InfraUsers -down-> Browser : HTTP
+AdminUsers -down-> Browser : HTTP
+Browser -down-> FlaskCore : Requests
+
+' === PRESENTATION FLOWS ===
+FlaskCore -right-> Templates : Render
+Templates -up-> Browser : HTML
+Browser <-right-> StaticAssets : Assets
+StaticAssets -down-> Static : Files
+
+' === APP LAYER FLOWS ===
+Routes -right-> Auth : Login
+Auth -right-> SessionMgmt : Sessions
+SessionMgmt -down-> SessionValidator : Validate
+Auth -down-> PasswordHash : Hash
+
+' === BUSINESS LOGIC FLOWS ===
+Routes -down-> UserService : Users
+Routes -down-> TicketService : Tickets
+Routes -down-> CategoryService : Categories
+Routes -down-> AnalyticsService : Reports
+
+UserService -right-> AuditService : Log
+TicketService -right-> AuditService : Log
+CategoryService -right-> AuditService : Log
+
+' === EMAIL FLOWS ===
+GmailIMAP -down-> IMAPClient : Connect
+IMAPClient -right-> EmailFetcher : Fetch
+EmailFetcher -right-> EmailParser : Parse
+EmailParser -right-> AttachmentProcessor : Process
+AttachmentProcessor -down-> Attachments : Store
+EmailService -left-> TicketService : Create
+
+' === DATA ACCESS FLOWS ===
+UserService -down-> ORM : CRUD
+TicketService -down-> ORM : CRUD
+CategoryService -down-> ORM : CRUD
+EmailService -down-> ORM : CRUD
+AnalyticsService -down-> ORM : Query
+AuditService -down-> ORM : Log
+
+ORM -right-> Models : Use
+Models -down-> SQLiteDB : Access
+
+' === DATABASE RELATIONSHIPS ===
+Users <-down-> Tickets : Assign
+Tickets <-right-> Categories : Categorize
+Tickets <-down-> Emails : Thread
+Tickets <-down-> Logs : Audit
+
+' === FILE SYSTEM FLOWS ===
+Routes -down-> Attachments : Serve
+FlaskCore -down-> Templates_Dir : Load
+
+' === UTILITY FLOWS ===
+FlaskCore -down-> LoggingSystem : Log
+Routes -down-> ErrorHandler : Errors
+
+' === FUTURE: AI/LLM INTEGRATION ===
+TicketService -down-> LLMClient : Classify Ticket
+LLMClient -right-> PromptEng : Prepare Prompt
+LLMClient -down-> ClassifyLogic : Category/Urgency
+ClassifyLogic -up-> TicketService : Result
+
+' === FUTURE: AUTOMATION TRIGGER INTEGRATION ===
+TicketService -down-> TriggerDispatcher : Automation Trigger
+TriggerDispatcher -right-> ScriptExec : Run Script
+TriggerDispatcher -down-> CatHandlers : Category Handler
+ScriptExec -up-> TicketService : Update Ticket
+
+' ========================================
+' === POSITIONING HINTS ===
+' ========================================
+
+PresentationLayer -[hidden]down- FlaskApp
+FlaskApp -[hidden]down- BusinessLogic
+BusinessLogic -[hidden]down- DataLayer
+DataLayer -[hidden]down- DataStorage
+ExternalServices -[hidden]right- SystemUtils
+AILLM -[hidden]right- AutomationEngine
+
+note top of GmailIMAP
+Gmail IMAP Server
+INBOX & Sent Mail
+end note
+
+note right of SQLiteDB
+Central Data Store
+5 Core Tables
+end note
+
+note bottom of EmailService
+Auto Email Processing
+Threading Support
+end note
+
+note left of AuditService
+Complete Audit Trail
+All Operations Logged
+end note
+
+note right of AILLM
+LLM/AI Integration for Category & Urgency Tagging
+end note
+
+note right of AutomationEngine
+Automation Triggers for repetitive admin tasks
+end note
+
+@enduml

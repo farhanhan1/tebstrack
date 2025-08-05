@@ -412,19 +412,19 @@ def test_session():
 @login_required
 def tickets():
     # Filters
-    month = request.args.get('month')
+
+    month = request.args.get('month', 'All')
     status = request.args.get('status', 'All')
     category = request.args.get('category')
-    # Default to current month
     import datetime
-    now = datetime.datetime.now()
-    if not month:
-        month = now.strftime('%Y-%m')
-    month_start = datetime.datetime.strptime(month, '%Y-%m')
-    next_month = (month_start + datetime.timedelta(days=32)).replace(day=1)
-
-    # Query tickets
-    query = Ticket.query.filter(Ticket.created_at >= month_start, Ticket.created_at < next_month)
+    query = Ticket.query
+    if month != 'All':
+        try:
+            month_start = datetime.datetime.strptime(month, '%Y-%m')
+            next_month = (month_start + datetime.timedelta(days=32)).replace(day=1)
+            query = query.filter(Ticket.created_at >= month_start, Ticket.created_at < next_month)
+        except Exception:
+            pass  # fallback: show all if parsing fails
     if status and status != 'All':
         query = query.filter(Ticket.status == status)
     if category and category != 'All':

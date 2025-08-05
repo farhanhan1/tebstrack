@@ -2,10 +2,22 @@
 {% block content %}
 {% set month_names = ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
 <div class="tickets-container">
-  <h1 class="tickets-title">Ticket Table for {{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}</h1>
+  <h1 class="tickets-title">
+    {% if month == 'All' %}
+      Ticket Table for All
+    {% else %}
+      Ticket Table for {{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}
+    {% endif %}
+  </h1>
   <div class="tickets-stats" style="display: flex; gap: 2.2rem; margin-bottom: 2.2rem; justify-content: center; align-items: stretch; flex-wrap: wrap; width: 100%;">
     <div style="flex:1 1 0; min-width: 180px; max-width: 340px; background: linear-gradient(90deg, #e0e7ff 60%, #f4f6fb 100%); box-shadow: 0 2px 12px rgba(79,140,255,0.08); border-radius: 16px; padding: 1.3rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0 0.2rem; transition: font-size 0.2s;">
-      <span class="stat-label" style="color: #4f8cff; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">Tickets Raised in {{ month_names[month[5:7]|int - 1] }}</span>
+      <span class="stat-label" style="color: #4f8cff; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">
+        {% if month == 'All' %}
+          Total Tickets Raised
+        {% else %}
+          Tickets Raised in {{ month_names[month[5:7]|int - 1] }}
+        {% endif %}
+      </span>
       <span class="stat-value" style="color: #2563eb; font-weight: 800; font-size: 2.1rem; letter-spacing: 1px; transition: font-size 0.2s;">{{ tickets_raised }}</span>
     </div>
     <div style="flex:1 1 0; min-width: 180px; max-width: 340px; background: linear-gradient(90deg, #fef3c7 60%, #f4f6fb 100%); box-shadow: 0 2px 12px rgba(255,193,7,0.08); border-radius: 16px; padding: 1.3rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0 0.2rem; transition: font-size 0.2s;">
@@ -79,13 +91,10 @@
   <form method="get" class="tickets-filters" style="margin-bottom:0; display: flex; gap: 1.1rem; align-items: center; flex-wrap: wrap; justify-content: center; width: 100%; background: #f4f6fb; border-radius: 12px; padding: 1rem 1.2rem 0.7rem 1.2rem; box-shadow: 0 1px 6px rgba(79,140,255,0.07);">
     <label style="font-weight: 600; color: #4f8cff; margin-right: 0.3rem; display: flex; align-items: center;">Month:
       <select name="month" style="margin-left: 0.5rem; padding: 0.35rem 0.9rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; font-weight: 500;">
-        {% if all_months|length == 0 %}
-        <option value="{{ month }}">{{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}</option>
-        {% else %}
+        <option value="All" {% if month == 'All' %}selected{% endif %}>All</option>
         {% for m in all_months %}
-        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ month_names[m[5:7]|int - 1] }} {{ m[:4] }}</option>
+          <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ month_names[m[5:7]|int - 1] }} {{ m[:4] }}</option>
         {% endfor %}
-        {% endif %}
       </select>
     </label>
     <label style="font-weight: 600; color: #4f8cff; margin-right: 0.3rem; display: flex; align-items: center;">Category:

@@ -1,0 +1,134 @@
+@startuml TeBSTrack Use Case Diagram
+
+!define AWSPUML https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v15.0/dist
+!include AWSPUML/AWSCommon.puml
+
+left to right direction
+
+actor "Infrastructure User" as Infra
+actor "Admin User" as Admin
+actor "Email System" as EmailSys
+actor "System" as System
+
+rectangle "TeBSTrack Use Case Diagram" {
+  
+  ' Authentication Use Cases
+  usecase "Login" as UC1
+  usecase "Logout" as UC2
+  usecase "View Profile" as UC3
+  
+  ' Ticket Management Use Cases
+  usecase "View Dashboard" as UC4
+  usecase "View Tickets" as UC5
+  usecase "Create Ticket" as UC27
+  usecase "View Ticket Details" as UC6
+  usecase "Edit Ticket" as UC7
+  usecase "Delete Tickets" as UC28
+  usecase "Bulk Actions" as UC29
+  usecase "Update Ticket Status" as UC8
+  usecase "Assign Ticket" as UC9
+  usecase "View Monthly Statistics" as UC10
+  
+  ' Email Integration Use Cases
+  usecase "Fetch Emails" as UC30
+  usecase "Parse Email Content" as UC31
+  usecase "Process Attachments" as UC32
+  usecase "Serve Attachments" as UC33
+  usecase "Handle Email Threading" as UC26
+  
+  ' Admin-only Use Cases
+  usecase "Manage Users" as UC11
+  usecase "Create User" as UC12
+  usecase "Edit User" as UC13
+  usecase "Delete User" as UC14
+  usecase "Manage Categories" as UC15
+  usecase "Add Category" as UC16
+  usecase "Edit Category" as UC17
+  usecase "Delete Category" as UC18
+  usecase "View Audit Logs" as UC19
+  usecase "Access Settings" as UC20
+  
+  ' System Use Cases
+  usecase "Classify Ticket" as UC21
+  usecase "Generate Analytics" as UC22
+  usecase "Log Activity" as UC23
+  usecase "Validate User Session" as UC24
+  usecase "Hash Password" as UC25
+  
+  ' Include relationships (mandatory sub-processes)
+  UC4 ..> UC22 : <<include>>
+  UC4 ..> UC23 : <<include>>
+  UC1 ..> UC24 : <<include>>
+  UC1 ..> UC25 : <<include>>
+  UC7 ..> UC23 : <<include>>
+  UC27 ..> UC23 : <<include>>
+  UC28 ..> UC23 : <<include>>
+  UC29 ..> UC23 : <<include>>
+  UC11 ..> UC24 : <<include>>
+  UC12 ..> UC25 : <<include>>
+  UC12 ..> UC23 : <<include>>
+  UC13 ..> UC23 : <<include>>
+  UC14 ..> UC23 : <<include>>
+  UC15 ..> UC24 : <<include>>
+  UC16 ..> UC23 : <<include>>
+  UC17 ..> UC23 : <<include>>
+  UC18 ..> UC23 : <<include>>
+  UC6 ..> UC26 : <<include>>
+  UC30 ..> UC31 : <<include>>
+  UC31 ..> UC32 : <<include>>
+  UC5 ..> UC22 : <<include>>
+  
+  ' Extend relationships (optional/conditional behaviors)
+  UC7 <.. UC8 : <<extend>>
+  UC7 <.. UC9 : <<extend>>
+  UC7 <.. UC21 : <<extend>>
+  UC5 <.. UC10 : <<extend>>
+  UC11 <.. UC12 : <<extend>>
+  UC11 <.. UC13 : <<extend>>
+  UC11 <.. UC14 : <<extend>>
+  UC15 <.. UC16 : <<extend>>
+  UC15 <.. UC17 : <<extend>>
+  UC15 <.. UC18 : <<extend>>
+  UC4 <.. UC19 : <<extend>>
+  UC29 <.. UC28 : <<extend>>
+  UC6 <.. UC33 : <<extend>>
+  
+}
+
+' Actor relationships - Infrastructure User
+Infra --> UC1
+Infra --> UC2
+Infra --> UC3
+Infra --> UC4
+Infra --> UC5
+Infra --> UC27
+Infra --> UC6
+Infra --> UC7
+Infra --> UC33
+
+' Actor relationships - Admin User (inherits Infra + additional)
+Admin --> UC11
+Admin --> UC15
+Admin --> UC19
+Admin --> UC20
+Admin --> UC28
+Admin --> UC29
+Admin --> UC30
+
+' Actor relationships - Email System
+EmailSys --> UC30
+EmailSys --> UC31
+
+' Actor relationships - System
+System --> UC21
+System --> UC22
+System --> UC23
+System --> UC24
+System --> UC25
+System --> UC26
+System --> UC32
+
+' Inheritance
+Admin --|> Infra
+
+@enduml

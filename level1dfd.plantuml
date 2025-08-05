@@ -1,0 +1,51 @@
+@startuml
+' DFD Level 1 for TeBSTrack
+skinparam shadowing false
+skinparam rectangle {
+  BackgroundColor #f9f9fb
+  BorderColor #2563eb
+}
+skinparam ellipse {
+  BackgroundColor #e0e7ff
+  BorderColor #2563eb
+}
+skinparam database {
+  BackgroundColor #fffbe6
+  BorderColor #b45309
+}
+
+actor "IMAP Email Server" as IMAP
+rectangle "1.0 Fetch &\nParse Emails" as FetchParse
+rectangle "2.0 Group into Threads" as GroupThreads
+rectangle "3.0 Classify Ticket (LLM)" as ClassifyLLM
+rectangle "4.0 Store & Update Tickets" as StoreTicket
+database "D1: Ticket DB" as TicketDB
+database "D2: Email Message DB" as EmailDB
+database "D3: User DB" as UserDB
+database "D4: Category DB" as CategoryDB
+database "D5: Log DB" as LogDB
+database "D6: Attachment Store" as AttStore
+rectangle "5.0 View/Update\nDashboard" as Dashboard
+actor "Infra User" as InfraUser
+actor "Admin" as Admin
+rectangle "6.0 Log Actions" as LogActions
+
+' Flows
+IMAP --> FetchParse : Incoming emails
+FetchParse --> GroupThreads : Parsed messages
+FetchParse --> AttStore : Save attachments
+GroupThreads --> EmailDB : Store email data
+GroupThreads --> ClassifyLLM : Threaded messages
+ClassifyLLM --> StoreTicket : Ticket + AI tags
+StoreTicket --> TicketDB : CRUD ticket
+Dashboard --> TicketDB : View/Update\nCRUD ticket
+Dashboard --> EmailDB : View threaded\nmessages
+Dashboard --> CategoryDB : Read Categories
+Dashboard --> UserDB : Create/Delete Users
+Dashboard --> LogActions : Actions
+LogActions --> LogDB : Log Entries
+
+InfraUser --> Dashboard : View/Update
+Admin --> Dashboard : View/Update\nCreate/Delete Categories\nCreate/Delete Users
+
+@enduml
