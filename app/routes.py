@@ -556,6 +556,10 @@ class EditTicketForm(FlaskForm):
     status = SelectField('Status', choices=[('Open','Open'),('Closed','Closed')], validators=[DataRequired()])
     description = TextAreaField('Description', validators=[DataRequired()])
     assigned_to = IntegerField('Assignee', validators=[Optional()])
+    resolution = StringField('Resolution', validators=[Optional()])
+    sender = StringField('Request by', validators=[Optional()])
+    created_at = StringField('Issue Reported Date', validators=[Optional()])  # Will parse as date
+    updated_at = StringField('Date of Completion', validators=[Optional()])  # Will parse as date
 
 @main.route('/viewticket/<int:ticket_id>')
 @login_required
@@ -636,17 +640,6 @@ def serve_attachment(filename):
 
 # Admin: Edit Ticket page
 
-# WTForm for editing tickets
-from wtforms import SelectField, TextAreaField, IntegerField
-from wtforms.validators import DataRequired, Optional
-
-class EditTicketForm(FlaskForm):
-    subject = StringField('Subject', validators=[DataRequired()])
-    category = StringField('Category', validators=[DataRequired()])
-    urgency = SelectField('Urgency', choices=[('Low','Low'),('Medium','Medium'),('High','High'),('Urgent','Urgent')], validators=[DataRequired()])
-    status = SelectField('Status', choices=[('Open','Open'),('Closed','Closed')], validators=[DataRequired()])
-    description = TextAreaField('Description', validators=[DataRequired()])
-    assigned_to = IntegerField('Assignee', validators=[Optional()])
 
 @main.route('/edit_ticket/<int:ticket_id>', methods=['GET', 'POST'])
 @login_required
@@ -664,7 +657,11 @@ def edit_ticket(ticket_id):
             'urgency': ticket.urgency,
             'status': ticket.status,
             'description': ticket.description,
-            'assigned_to': ticket.assigned_to
+            'assigned_to': ticket.assigned_to,
+            'resolution': ticket.resolution,
+            'sender': ticket.sender,
+            'created_at': ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '',
+            'updated_at': ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else ''
         }
         new = {
             'subject': form.subject.data,
@@ -672,7 +669,11 @@ def edit_ticket(ticket_id):
             'urgency': form.urgency.data,
             'status': form.status.data,
             'description': form.description.data,
-            'assigned_to': form.assigned_to.data if form.assigned_to.data else None
+            'assigned_to': form.assigned_to.data if form.assigned_to.data else None,
+            'resolution': form.resolution.data if hasattr(form, 'resolution') and form.resolution.data else None,
+            'sender': form.sender.data if hasattr(form, 'sender') and form.sender.data else ticket.sender,
+            'created_at': form.created_at.data if hasattr(form, 'created_at') and form.created_at.data else old['created_at'],
+            'updated_at': form.updated_at.data if hasattr(form, 'updated_at') and form.updated_at.data else old['updated_at']
         }
         user_map = {u.id: u.username for u in User.query.all()}
         for field in old:
@@ -686,7 +687,15 @@ def edit_ticket(ticket_id):
                 new_disp = new_val if new_val is not None else '-'
             if old_val != new_val:
                 changes.append(f"{field} changed from '{old_disp}' to '{new_disp}'")
-                setattr(ticket, field, new_val)
+                if field in ['created_at', 'updated_at']:
+                    # Parse date string to datetime
+                    import datetime
+                    try:
+                        setattr(ticket, field, datetime.datetime.strptime(new_val, '%Y-%m-%d'))
+                    except Exception:
+                        pass  # Ignore parse errors
+                else:
+                    setattr(ticket, field, new_val)
         db.session.commit()
         from .models import Log
         if changes:
