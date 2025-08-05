@@ -1,10 +1,19 @@
+
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, Integer, String, Float, DateTime
+from datetime import datetime
 from flask_login import UserMixin
+import json
 
 db = SQLAlchemy()
 
-# For email threads and attachments
-import json
+class LoginAttempt(db.Model):
+    __tablename__ = 'login_attempts'
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(64), unique=True, nullable=False)
+    fail_count = db.Column(db.Integer, default=0)
+    lockout_until = db.Column(db.Float, default=0)  # store as timestamp
+    last_attempt = db.Column(db.DateTime, default=datetime.utcnow)
 
 class EmailMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
