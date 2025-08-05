@@ -390,16 +390,53 @@ def index():
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
+    import datetime
+    import logging
+    import time
     form = LoginForm()
+    # Brute force protection: track failed attempts and lockout per IP
+    # SECURITY NOTE: Session-based lockout can be bypassed by deleting cookies. For stronger protection, store lockout/fail counts server-side (e.g., DB or cache) keyed by IP or username.
+    max_attempts = 5
+    lockout_minutes = 15
+    ip = request.remote_addr
+    now_ts = time.time()
+    lockout_key = f'lockout_{ip}'
+    fail_key = f'fail_{ip}'
+    # Check lockout (use timestamp for comparison)
+    if session.get(lockout_key):
+        until_val = session[lockout_key]
+        # If old session, convert datetime to timestamp
+        if isinstance(until_val, datetime.datetime):
+            until_ts = until_val.timestamp()
+        else:
+            until_ts = float(until_val)
+        if now_ts < until_ts:
+            flash('Too many failed login attempts. Try again later.', 'error')
+            logging.warning(f"Locked out login attempt from {ip}")
+            return render_template('login.html', form=form)
+        else:
+            session.pop(lockout_key)
+            session[fail_key] = 0
     if form.validate_on_submit():
         username = form.username.data.strip()
         password = form.password.data
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password, password):
             login_user(user)
+            session[fail_key] = 0
+            logging.info(f"Login success for {username} from {ip}")
             return redirect(url_for('main.index'))
         else:
-            flash('Login failed.')
+            # Brute force: increment fail count
+            session[fail_key] = session.get(fail_key, 0) + 1
+            attempts_left = max_attempts - session[fail_key]
+            if session[fail_key] >= max_attempts:
+                session[lockout_key] = now_ts + (lockout_minutes * 60)
+                flash('Too many failed login attempts. Try again later.', 'error')
+                logging.warning(f"Account lockout for {username} from {ip}")
+            else:
+                flash(f'Login failed. {attempts_left} attempt(s) left before lockout.', 'error')
+                logging.warning(f"Login failed for {username} from {ip} (attempt {session[fail_key]})")
             return render_template('login.html', form=form)
     # Always pass form to template
     return render_template('login.html', form=form)
