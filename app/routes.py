@@ -544,6 +544,19 @@ def tickets():
         user_map=user_map
     )
 
+
+from flask_wtf import FlaskForm
+from wtforms import StringField, TextAreaField, SelectField, IntegerField
+from wtforms.validators import DataRequired, Optional
+
+class EditTicketForm(FlaskForm):
+    subject = StringField('Subject', validators=[DataRequired()])
+    category = StringField('Category', validators=[DataRequired()])
+    urgency = SelectField('Urgency', choices=[('Low','Low'),('Medium','Medium'),('High','High'),('Urgent','Urgent')], validators=[DataRequired()])
+    status = SelectField('Status', choices=[('Open','Open'),('Closed','Closed')], validators=[DataRequired()])
+    description = TextAreaField('Description', validators=[DataRequired()])
+    assigned_to = IntegerField('Assignee', validators=[Optional()])
+
 @main.route('/viewticket/<int:ticket_id>')
 @login_required
 def view_ticket(ticket_id):
@@ -604,7 +617,8 @@ def view_ticket(ticket_id):
         if msg.body:
             # Remove everything from the first occurrence of a quoted reply marker
             msg.body = re.split(r'\n?On .+wrote:', msg.body)[0].strip()
-    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories, all_users=all_users, thread_msgs=thread_msgs, GMAIL_USER=GMAIL_USER)
+    form = EditTicketForm(obj=ticket)
+    return render_template('viewticket.html', ticket=ticket, all_categories=all_categories, all_users=all_users, thread_msgs=thread_msgs, GMAIL_USER=GMAIL_USER, form=form)
 
 # Route to serve attachments
 import os
@@ -621,6 +635,19 @@ def serve_attachment(filename):
     return send_from_directory(attachments_dir, filename, as_attachment=True)
 
 # Admin: Edit Ticket page
+
+# WTForm for editing tickets
+from wtforms import SelectField, TextAreaField, IntegerField
+from wtforms.validators import DataRequired, Optional
+
+class EditTicketForm(FlaskForm):
+    subject = StringField('Subject', validators=[DataRequired()])
+    category = StringField('Category', validators=[DataRequired()])
+    urgency = SelectField('Urgency', choices=[('Low','Low'),('Medium','Medium'),('High','High'),('Urgent','Urgent')], validators=[DataRequired()])
+    status = SelectField('Status', choices=[('Open','Open'),('Closed','Closed')], validators=[DataRequired()])
+    description = TextAreaField('Description', validators=[DataRequired()])
+    assigned_to = IntegerField('Assignee', validators=[Optional()])
+
 @main.route('/edit_ticket/<int:ticket_id>', methods=['GET', 'POST'])
 @login_required
 def edit_ticket(ticket_id):
@@ -628,7 +655,8 @@ def edit_ticket(ticket_id):
     if current_user.role != 'admin':
         return redirect(url_for('main.index'))
     infra_users = User.query.filter_by(role='infra').order_by(User.username).all()
-    if request.method == 'POST':
+    form = EditTicketForm(obj=ticket)
+    if form.validate_on_submit():
         changes = []
         old = {
             'subject': ticket.subject,
@@ -639,14 +667,13 @@ def edit_ticket(ticket_id):
             'assigned_to': ticket.assigned_to
         }
         new = {
-            'subject': request.form.get('subject', ticket.subject),
-            'category': request.form.get('category', ticket.category),
-            'urgency': request.form.get('urgency', ticket.urgency),
-            'status': request.form.get('status', ticket.status),
-            'description': request.form.get('description', ticket.description),
-            'assigned_to': int(request.form.get('assigned_to')) if request.form.get('assigned_to') else None
+            'subject': form.subject.data,
+            'category': form.category.data,
+            'urgency': form.urgency.data,
+            'status': form.status.data,
+            'description': form.description.data,
+            'assigned_to': form.assigned_to.data if form.assigned_to.data else None
         }
-        # For assigned_to, show username if possible
         user_map = {u.id: u.username for u in User.query.all()}
         for field in old:
             old_val = old[field]
@@ -670,4 +697,7 @@ def edit_ticket(ticket_id):
         db.session.add(log)
         db.session.commit()
         return redirect(url_for('main.tickets'))
-    return render_template('edit_ticket.html', ticket=ticket, infra_users=infra_users)
+    # Pre-populate form with ticket data for GET
+    if request.method == 'GET':
+        form = EditTicketForm(obj=ticket)
+    return render_template('edit_ticket.html', ticket=ticket, infra_users=infra_users, form=form)

@@ -2,30 +2,32 @@
 {% block content %}
 <div class="dashboard-container">
   <h1 style="color:#2563eb;">Edit Ticket</h1>
-  <form method="post" style="max-width:500px; margin:2rem auto; background:#f4f6fb; padding:2rem; border-radius:12px; box-shadow:0 2px 8px rgba(44,62,80,0.08);">
+  <form method="post" action="{{ url_for('main.edit_ticket', ticket_id=ticket.id) }}" autocomplete="off" style="max-width:500px; margin:2rem auto; background:#f4f6fb; padding:2rem; border-radius:12px; box-shadow:0 2px 8px rgba(44,62,80,0.08);">
+    {{ form.hidden_tag() }}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+        {% for category, message in messages %}
+          <li style="color: #dc2626; font-weight: 600;">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
     <label style="font-weight:600; color:#4f8cff;">Subject:</label>
-    <input type="text" name="subject" value="{{ ticket.subject }}" required style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+    {{ form.subject(class_="form-control", style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;") }}
     <label style="font-weight:600; color:#4f8cff;">Category:</label>
-    <input type="text" name="category" value="{{ ticket.category }}" required style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+    {{ form.category(class_="form-control", style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;") }}
     <label style="font-weight:600; color:#4f8cff;">Urgency:</label>
-    <select name="urgency" required style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
-      <option value="Low" {% if ticket.urgency == 'Low' %}selected{% endif %}>Low</option>
-      <option value="Medium" {% if ticket.urgency == 'Medium' %}selected{% endif %}>Medium</option>
-      <option value="High" {% if ticket.urgency == 'High' %}selected{% endif %}>High</option>
-      <option value="Urgent" {% if ticket.urgency == 'Urgent' %}selected{% endif %}>Urgent</option>
-    </select>
+    {{ form.urgency(class_="form-control", style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;") }}
     <label style="font-weight:600; color:#4f8cff;">Status:</label>
-    <select name="status" required style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
-      <option value="Open" {% if ticket.status == 'Open' %}selected{% endif %}>Open</option>
-      <option value="Closed" {% if ticket.status == 'Closed' %}selected{% endif %}>Closed</option>
-    </select>
+    {{ form.status(class_="form-control", style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;") }}
     <label style="font-weight:600; color:#4f8cff;">Description:</label>
-    <textarea name="description" required style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db; min-height:80px;">{{ ticket.description }}</textarea>
+    {{ form.description(class_="form-control", style="width:100%; margin-bottom:1rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db; min-height:80px;") }}
     <label style="font-weight:600; color:#4f8cff;">Assignee:</label>
-    <select name="assigned_to" style="width:100%; margin-bottom:1.5rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
-      <option value="">-- None --</option>
+    <select name="assigned_to" class="form-control" style="width:100%; margin-bottom:1.5rem; padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
+      <option value="">-- Unassigned --</option>
       {% for user in infra_users %}
-        <option value="{{ user.id }}" {% if ticket.assigned_to == user.id %}selected{% endif %}>{{ user.username }}</option>
+        <option value="{{ user.id }}" {% if form.assigned_to.data == user.id or ticket.assigned_to == user.id %}selected{% endif %}>{{ user.username }}</option>
       {% endfor %}
     </select>
     <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.7rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Save Changes</button>

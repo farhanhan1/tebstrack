@@ -324,7 +324,10 @@
       if (action === 'delete' && !confirm('Are you sure you want to delete the selected ticket(s)?')) return;
       fetch('/bulk_ticket_action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token() }}'
+        },
         body: JSON.stringify({ action: action, ticket_ids: selectedIds })
       })
       .then(function(r) { return r.json(); })

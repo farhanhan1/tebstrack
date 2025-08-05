@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <form method="post" action="{{ url_for('main.edit_ticket', ticket_id=ticket.id) }}" style="width:100%">
+  {{ form.hidden_tag() }}
   <div style="max-width: 700px; margin: 40px auto; padding: 2.5rem 2rem 2rem 2rem; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(79,140,255,0.10), 0 1.5px 8px rgba(0,0,0,0.04);">
     <h1 style="color: #4f8cff; font-size: 2rem; font-weight: 700; margin-bottom: 2rem; letter-spacing: 1px; text-align: left;">Ticket Details</h1>
     <table style="width: 100%; border-collapse: separate; border-spacing: 0 0.5rem; margin-bottom: 2.5rem;">
