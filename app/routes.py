@@ -190,6 +190,7 @@ def audit_logs():
 # Create Ticket endpoint (must be after Blueprint definition)
 @main.route('/create_ticket', methods=['POST'])
 @login_required
+@csrf.exempt
 def create_ticket():
     subject = request.form.get('subject')
     category = request.form.get('category')
