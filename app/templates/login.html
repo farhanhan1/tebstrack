@@ -9,10 +9,11 @@
     {% endif %}
   {% endwith %}
   <form method="POST">
+    {{ form.hidden_tag() }}
     <label for="username">Username</label>
-    <input type="text" id="username" name="username" required autofocus>
+    {{ form.username(size=32, id='username', autofocus=True) }}
     <label for="password">Password</label>
-    <input type="password" id="password" name="password" required>
+    {{ form.password(size=32, id='password') }}
     <input type="submit" value="Login">
   </form>
 </div>

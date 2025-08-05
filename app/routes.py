@@ -1,6 +1,10 @@
+
 import logging
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify, send_from_directory
+from flask_wtf import FlaskForm, CSRFProtect
+from wtforms import StringField, PasswordField
+from wtforms.validators import DataRequired, Length
 from flask_login import login_user, login_required, logout_user, current_user
 from app.models import User, Ticket, db, Category
 from app.models import Log as TicketLog
@@ -10,7 +14,13 @@ from sqlalchemy import func
 import datetime
 from .fetch_emails_util import fetch_and_store_emails
 
+csrf = CSRFProtect()
 main = Blueprint('main', __name__)
+
+# Flask-WTF LoginForm for CSRF and validation
+class LoginForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=1, max=64)])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=1, max=128)])
 
 # Favicon route (must be after Blueprint definition)
 @main.route('/favicon.ico')
@@ -380,16 +390,19 @@ def index():
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+    form = LoginForm()
+    if form.validate_on_submit():
+        username = form.username.data.strip()
+        password = form.password.data
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password, password):
             login_user(user)
             return redirect(url_for('main.index'))
         else:
             flash('Login failed.')
-    return render_template('login.html')
+            return render_template('login.html', form=form)
+    # Always pass form to template
+    return render_template('login.html', form=form)
 
 @main.route('/logout')
 @login_required
