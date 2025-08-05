@@ -64,4 +64,3 @@ class Ticket(db.Model):
     thread_id = db.Column(db.String(255), nullable=True)  # For email threading
     audit_log = db.Column(db.Text, nullable=True)  # JSON or text log
     assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    # ...add more fields as needed...

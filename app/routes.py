@@ -26,12 +26,6 @@ class LoginForm(FlaskForm):
 def favicon():
     return send_from_directory(current_app.root_path + '/../lib', 'tebstrack.ico', mimetype='image/vnd.microsoft.icon')
 
-# ...existing code...
-
-
-
-# ...existing code...
-
 @main.route('/settings', methods=['GET'])
 @login_required
 def settings():
