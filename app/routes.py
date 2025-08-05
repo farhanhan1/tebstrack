@@ -14,6 +14,7 @@ from sqlalchemy import func
 import datetime
 from .fetch_emails_util import fetch_and_store_emails
 from app.extensions import csrf
+import bleach
 main = Blueprint('main', __name__)
 
 # Flask-WTF LoginForm for CSRF and validation
@@ -186,10 +187,11 @@ def audit_logs():
 @login_required
 @csrf.exempt
 def create_ticket():
-    subject = request.form.get('subject')
-    category = request.form.get('category')
-    urgency = request.form.get('urgency')
-    description = request.form.get('description')
+    # Sanitize all user input fields
+    subject = bleach.clean(request.form.get('subject', ''))
+    category = bleach.clean(request.form.get('category', ''))
+    urgency = bleach.clean(request.form.get('urgency', ''))
+    description = bleach.clean(request.form.get('description', ''))
     if not subject or not category or not urgency or not description:
         return jsonify({'success': False, 'error': 'All fields are required.'})
     try:
@@ -198,7 +200,7 @@ def create_ticket():
             category=category,
             urgency=urgency,
             description=description,
-            sender=current_user.username if hasattr(current_user, 'username') else 'Unknown',
+            sender=bleach.clean(current_user.username) if hasattr(current_user, 'username') else 'Unknown',
             status='Open',
             created_at=datetime.datetime.now()
         )
@@ -646,6 +648,7 @@ def edit_ticket(ticket_id):
     infra_users = User.query.filter_by(role='infra').order_by(User.username).all()
     form = EditTicketForm(obj=ticket)
     if form.validate_on_submit():
+        import bleach
         changes = []
         old = {
             'subject': ticket.subject,
@@ -660,16 +663,16 @@ def edit_ticket(ticket_id):
             'updated_at': ticket.updated_at.strftime('%Y-%m-%d') if ticket.updated_at else ''
         }
         new = {
-            'subject': form.subject.data,
-            'category': form.category.data,
-            'urgency': form.urgency.data,
-            'status': form.status.data,
-            'description': form.description.data,
+            'subject': bleach.clean(form.subject.data),
+            'category': bleach.clean(form.category.data),
+            'urgency': bleach.clean(form.urgency.data),
+            'status': bleach.clean(form.status.data),
+            'description': bleach.clean(form.description.data),
             'assigned_to': form.assigned_to.data if form.assigned_to.data else None,
-            'resolution': form.resolution.data if hasattr(form, 'resolution') and form.resolution.data else None,
-            'sender': form.sender.data if hasattr(form, 'sender') and form.sender.data else ticket.sender,
-            'created_at': form.created_at.data if hasattr(form, 'created_at') and form.created_at.data else old['created_at'],
-            'updated_at': form.updated_at.data if hasattr(form, 'updated_at') and form.updated_at.data else old['updated_at']
+            'resolution': bleach.clean(form.resolution.data) if hasattr(form, 'resolution') and form.resolution.data else None,
+            'sender': bleach.clean(form.sender.data) if hasattr(form, 'sender') and form.sender.data else ticket.sender,
+            'created_at': bleach.clean(form.created_at.data) if hasattr(form, 'created_at') and form.created_at.data else old['created_at'],
+            'updated_at': bleach.clean(form.updated_at.data) if hasattr(form, 'updated_at') and form.updated_at.data else old['updated_at']
         }
         user_map = {u.id: u.username for u in User.query.all()}
         for field in old:

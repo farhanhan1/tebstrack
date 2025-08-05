@@ -76,9 +76,9 @@
 <!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const months = {{ ticket_stats_by_month.months|tojson|safe }};
-  const openData = {{ ticket_stats_by_month.open|tojson|safe }};
-  const closedData = {{ ticket_stats_by_month.closed|tojson|safe }};
+  const months = {{ ticket_stats_by_month.months|tojson }};
+  const openData = {{ ticket_stats_by_month.open|tojson }};
+  const closedData = {{ ticket_stats_by_month.closed|tojson }};
   new Chart(document.getElementById('ticketsBarChart').getContext('2d'), {
     type: 'bar',
     data: {

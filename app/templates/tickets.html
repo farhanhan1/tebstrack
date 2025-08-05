@@ -219,7 +219,7 @@
             <td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td>
             <td><span class="badge badge-category">{{ ticket.category or '-' }}</span></td>
             <td><a class="ticket-link" href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
-            <td><span class="badge badge-requestor">{{ ticket.sender or '-' }}</span></td>
+            <td><span class="badge badge-requestor">{{ ticket.sender|safe if ticket.sender else '-' }}</span></td>
             <td>{{ ticket.status }}</td>
             <td>{% if ticket.status == 'Closed' %}<span class="badge badge-resolution">{{ ticket.resolution or '-' }}</span>{% else %}-{% endif %}</td>
             <td><span class="badge badge-assignee">{{ user_map[ticket.assigned_to] if ticket.assigned_to and ticket.assigned_to in user_map else '-' }}</span></td>
