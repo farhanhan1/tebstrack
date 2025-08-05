@@ -414,6 +414,11 @@ def login():
     if form.validate_on_submit():
         username = form.username.data.strip()
         password = form.password.data
+        # Backend input validation: reject empty or whitespace-only username/password
+        if not username or not password or username.isspace() or password.isspace():
+            flash('Invalid username or password.', 'error')
+            return render_template('login.html', form=form)
+        # Optionally: add regex for allowed characters here
         user = User.query.filter_by(username=username).first()
         from app import db
         if user and check_password_hash(user.password, password):
