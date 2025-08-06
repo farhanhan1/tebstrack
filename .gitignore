@@ -6,3 +6,4 @@ app/templates/*.pyc
 app/static/__pycache__/
 app/static/*.pyc
 attachments/
+__pycache__/
