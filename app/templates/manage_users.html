@@ -64,6 +64,7 @@
     <span id="close-create-user-modal" style="position:absolute; top:18px; right:22px; font-size:1.7rem; color:#2563eb; cursor:pointer; font-weight:700;">&times;</span>
     <h2 style="color:#2563eb; font-size:1.25rem; font-weight:700; margin-bottom:1.2rem; text-align:center;">Create User</h2>
     <form id="create-user-modal-form" method="post" action="{{ url_for('main.create_user') }}" style="display:flex; flex-direction:column; gap:1.1rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="text" name="username" placeholder="Username" required style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
       <input type="password" name="password" placeholder="Password" required style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
       <select name="role" required style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
@@ -80,6 +81,7 @@
     <span id="close-edit-user-modal" style="position:absolute; top:18px; right:22px; font-size:1.7rem; color:#2563eb; cursor:pointer; font-weight:700;">&times;</span>
     <h2 style="color:#2563eb; font-size:1.25rem; font-weight:700; margin-bottom:1.2rem; text-align:center;">Edit User</h2>
     <form id="edit-user-modal-form" method="post" style="display:flex; flex-direction:column; gap:1.1rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="username" id="edit-user-username">
       <input type="password" name="password" placeholder="New Password (leave blank to keep)" style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
       <select name="role" id="edit-user-role" required style="padding:0.5rem 1rem; border-radius:6px; border:1px solid #d1d5db;">
