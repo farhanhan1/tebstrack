@@ -4,20 +4,20 @@
   <h1>Welcome to TeBSTrack</h1>
   <div class="dashboard-widgets">
     <div class="widget">
-      <h3>Open Tickets</h3>
+      <h3 style="padding-bottom: 23px;">Open Tickets</h3>
       <p>{{ open_count }}</p>
     </div>
     <div class="widget">
-      <h3>Urgent Tickets</h3>
+      <h3>Open Urgent Tickets</h3>
       <p>{{ urgent_count }}</p>
     </div>
     <div class="widget">
-      <h3>Closed Tickets</h3>
+      <h3 style="padding-bottom: 23px;">Closed Tickets</h3>
       <p>{{ closed_count }}</p>
     </div>
     {% if current_user.role == 'admin' %}
     <div class="widget">
-      <h3 style="padding-bottom: 23px;">Users</h3>
+      <h3 style="padding-bottom: 46px;">Users</h3>
       <p>{{ user_count }}</p>
     </div>
     {% endif %}

@@ -9,26 +9,25 @@
       Ticket Table for {{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}
     {% endif %}
   </h1>
-  <div class="tickets-stats" style="display: flex; gap: 2.2rem; margin-bottom: 2.2rem; justify-content: center; align-items: stretch; flex-wrap: wrap; width: 100%;">
-    <div style="flex:1 1 0; min-width: 180px; max-width: 340px; background: linear-gradient(90deg, #e0e7ff 60%, #f4f6fb 100%); box-shadow: 0 2px 12px rgba(79,140,255,0.08); border-radius: 16px; padding: 1.3rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0 0.2rem; transition: font-size 0.2s;">
-      <span class="stat-label" style="color: #4f8cff; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">
+  <div class="dashboard-widgets" style="display: flex; gap: 2.2rem; margin-bottom: 2.2rem; justify-content: center; align-items: stretch; flex-wrap: wrap; width: 100%;">
+    <div class="widget" style="background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(79,140,255,0.08); padding:1.3rem 1.5rem; min-width:180px; max-width:340px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0 0.2rem; text-align:center; word-break:break-word;">
+      <h3>
         {% if month == 'All' %}
           Total Tickets Raised
         {% else %}
-          Tickets Raised in {{ month_names[month[5:7]|int - 1] }}
+          Tickets Raised in {{ month_names[month[5:7]|int - 1] }} {{ month[:4] }}
         {% endif %}
-      </span>
-      <span class="stat-value" style="color: #2563eb; font-weight: 800; font-size: 2.1rem; letter-spacing: 1px; transition: font-size 0.2s;">{{ tickets_raised }}</span>
+      </h3>
+      <p>{{ tickets_raised }}</p>
     </div>
-    <div style="flex:1 1 0; min-width: 180px; max-width: 340px; background: linear-gradient(90deg, #fef3c7 60%, #f4f6fb 100%); box-shadow: 0 2px 12px rgba(255,193,7,0.08); border-radius: 16px; padding: 1.3rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0 0.2rem; transition: font-size 0.2s;">
-      <span class="stat-label" style="color: #b45309; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">Most Common Category</span>
-      <span class="stat-value" style="color: #b45309; font-weight: 800; font-size: 1.5rem; letter-spacing: 0.5px; transition: font-size 0.2s;">{{ most_common_category }}</span>
+    <div class="widget" style="background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(79,140,255,0.08); padding:1.3rem 1.5rem; min-width:180px; max-width:340px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0 0.2rem; text-align:center; word-break:break-word;">
+      <h3>Most Common Category</h3>
+      <p>{{ most_common_category }}</p>
     </div>
-    <div style="flex:1 1 0; min-width: 180px; max-width: 340px; background: linear-gradient(90deg, #d1fae5 60%, #f4f6fb 100%); box-shadow: 0 2px 12px rgba(16,185,129,0.08); border-radius: 16px; padding: 1.3rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0 0.2rem; transition: font-size 0.2s;">
-      <span class="stat-label" style="color: #059669; font-weight: 700; font-size: 1.08rem; margin-bottom: 0.3em; transition: font-size 0.2s;">Most Common Requestor</span>
-      <span class="stat-value" style="color: #059669; font-weight: 800; font-size: 1.5rem; letter-spacing: 0.5px; transition: font-size 0.2s;">{{ most_common_requestor }}</span>
+    <div class="widget" style="background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(79,140,255,0.08); padding:1.3rem 1.5rem; min-width:180px; max-width:340px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0 0.2rem; text-align:center; word-break:break-word;">
+      <h3>Most Common Requestor</h3>
+      <p>{{ most_common_requestor }}</p>
     </div>
-    <!-- Removed old Refresh button from tickets-stats -->
   </div>
   <script>
     // Responsive font size for tickets-stats cards
@@ -468,4 +467,18 @@
 .badge-urgency-medium { background: #fef9c3; color: #ca8a04; }
 .badge-urgency-low { background: #d1fae5; color: #059669; }
 .badge-urgency-urgent { background: #f87171; color: #fff; }
+/* Dashboard widget style for tickets page */
+.dashboard-widget-style {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(79,140,255,0.08);
+  padding: 1.3rem 1.5rem;
+  min-width: 180px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  margin: 0 0.2rem;
+}
 </style>

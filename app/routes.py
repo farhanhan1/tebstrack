@@ -338,7 +338,7 @@ def require_login():
 def index():
     # Quick stats
     open_count = Ticket.query.filter_by(status='Open').count()
-    urgent_count = Ticket.query.filter_by(urgency='Urgent').count()
+    urgent_count = Ticket.query.filter_by(urgency='Urgent', status='Open').count()
     closed_count = Ticket.query.filter_by(status='Closed').count()
     user_count = User.query.count()
 
