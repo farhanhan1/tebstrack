@@ -1,0 +1,5 @@
+<form id="reply-form" method="post" action="{{ url_for('main.reply_ticket', ticket_id=ticket.id) }}" style="margin-bottom:2rem;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <textarea name="reply_body" required placeholder="Type your reply here..." style="width:95%; min-height:90px; padding:0.7rem 1rem; border-radius:8px; border:1px solid #d1d5db; font-size:1.08rem; background:#f9fafb; color:#2d3a4b; margin-bottom:0.7rem; font-weight:500;"></textarea>
+  <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Send Reply</button>
+</form>

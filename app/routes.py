@@ -1,3 +1,6 @@
+from flask import Blueprint
+from flask_login import login_required
+
 
 import logging
 
@@ -16,6 +19,101 @@ from .fetch_emails_util import fetch_and_store_emails
 from app.extensions import csrf
 import bleach
 main = Blueprint('main', __name__)
+
+@main.route('/reply_ticket/<int:ticket_id>', methods=['POST'])
+@login_required
+@csrf.exempt
+def reply_ticket(ticket_id):
+    from .models import Ticket, EmailMessage, Log
+    import bleach, datetime, uuid, smtplib, os
+    from email.message import EmailMessage as PyEmailMessage
+    import logging
+    ticket = Ticket.query.get_or_404(ticket_id)
+    body = bleach.clean(request.form.get('reply_body', ''))
+    if not body:
+        flash('Reply cannot be empty.', 'error')
+        return redirect(url_for('main.view_ticket', ticket_id=ticket_id))
+    # Compose and send the email
+    smtp_host = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+    smtp_port = int(os.environ.get('SMTP_PORT', 587))
+    smtp_user = os.environ.get('GMAIL_USER', 'tebstrack@gmail.com')
+    smtp_pass = os.environ.get('GMAIL_APP_PASSWORD', '')
+    import email.utils
+    # Extract just the email address for sending
+    _, to_addr = email.utils.parseaddr(ticket.sender)
+    subject = f"Re: {ticket.subject}"
+    # Debug: print SMTP config and reply info
+    print(f"[DEBUG] SMTP config: host={smtp_host}, port={smtp_port}, user={smtp_user}", flush=True)
+    print(f"[DEBUG] Sending reply to: {to_addr}, subject: {subject}", flush=True)
+    logging.warning(f"[DEBUG] SMTP config: host={smtp_host}, port={smtp_port}, user={smtp_user}")
+    logging.warning(f"[DEBUG] Sending reply to: {to_addr}, subject: {subject}")
+    # Generate a unique message_id for this reply
+    message_id = f"<tebstrack-{uuid.uuid4()}@tebstrack>"
+    # Prevent duplicate by message_id
+    if EmailMessage.query.filter_by(message_id=message_id).first():
+        flash('Duplicate reply detected.', 'error')
+        return redirect(url_for('main.view_ticket', ticket_id=ticket_id))
+    # Build the email
+    msg = PyEmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = smtp_user
+    msg['To'] = to_addr
+    msg['Message-ID'] = message_id
+    msg.set_content(body)
+    # Optionally, set In-Reply-To and References headers if available
+    if ticket.thread_id:
+        last_msg = EmailMessage.query.filter_by(thread_id=ticket.thread_id).order_by(EmailMessage.sent_at.desc()).first()
+        if last_msg and last_msg.message_id:
+            msg['In-Reply-To'] = last_msg.message_id
+            msg['References'] = last_msg.message_id
+    email_sent = False
+    email_error = None
+    # Always extract the correct email address from ticket.sender
+    import email.utils
+    _, to_addr = email.utils.parseaddr(ticket.sender)
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+        email_sent = True
+        print("[DEBUG] Email sent successfully.", flush=True)
+        logging.warning("[DEBUG] Email sent successfully.")
+    except Exception as e:
+        email_error = str(e)
+        print(f"[DEBUG] Failed to send email: {e}", flush=True)
+        logging.error(f"[DEBUG] Failed to send email: {e}")
+        flash(f'Failed to send email: {e}', 'error')
+
+    # Only save EmailMessage if email was sent successfully
+    if email_sent:
+        thread_id = ticket.thread_id or str(ticket.id)
+        try:
+            email_msg = EmailMessage(
+                ticket_id=ticket.id,
+                thread_id=thread_id,
+                sender=current_user.username,
+                subject=subject,
+                body=body,
+                sent_at=datetime.datetime.now(),
+                attachments=None,
+                message_id=message_id,
+                in_reply_to=msg['In-Reply-To'] if 'In-Reply-To' in msg else None
+            )
+            db.session.add(email_msg)
+            db.session.commit()
+            log = Log(user=current_user.username, action='reply_ticket', details=f"Replied to ticket '{ticket.subject}' (ID: {ticket.id}) and sent email to {to_addr}")
+            db.session.add(log)
+            db.session.commit()
+            flash('Reply sent as email and saved to thread.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DEBUG] Failed to save reply to DB: {e}", flush=True)
+            logging.error(f"[DEBUG] Failed to save reply to DB: {e}")
+            flash(f'Failed to save reply to thread: {e}', 'error')
+    # Always refresh the page to show the updated thread, even if there was an error
+    return redirect(url_for('main.view_ticket', ticket_id=ticket_id))
+
 
 # Flask-WTF LoginForm for CSRF and validation
 class LoginForm(FlaskForm):
@@ -195,12 +293,19 @@ def create_ticket():
     if not subject or not category or not urgency or not description:
         return jsonify({'success': False, 'error': 'All fields are required.'})
     try:
+        # Try to use current_user.email if available, else just username
+        sender = None
+        if hasattr(current_user, 'email') and current_user.email:
+            sender = f"{current_user.username} <{current_user.email}>"
+        else:
+            sender = current_user.username if hasattr(current_user, 'username') else 'Unknown'
+        print(f"[DEBUG] Manual ticket sender: {sender}", flush=True)
         ticket = Ticket(
             subject=subject,
             category=category,
             urgency=urgency,
             description=description,
-            sender=bleach.clean(current_user.username) if hasattr(current_user, 'username') else 'Unknown',
+            sender=bleach.clean(sender),
             status='Open',
             created_at=datetime.datetime.now()
         )

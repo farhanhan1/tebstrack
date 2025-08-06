@@ -8,7 +8,16 @@ from .models import db, Ticket, EmailMessage
 
 def parse_email(msg):
     subject = msg['subject']
-    sender = msg['from']
+    import email.utils
+    sender_name, sender_email = email.utils.parseaddr(msg['from'])
+    if sender_email:
+        # Always store as 'Name <email>' if email is present
+        if sender_name:
+            sender = f"{sender_name} <{sender_email}>"
+        else:
+            sender = f"<{sender_email}>"
+    else:
+        sender = msg['from']
     date = msg['date']
     message_id = msg.get('Message-ID')
     # Use References header to find the root of the thread if available
@@ -95,6 +104,9 @@ def fetch_and_store_emails():
                 continue
             msg = email_mod.message_from_bytes(data[0][1])
             subject, sender, date, body, message_id, thread_id, attachments = parse_email(msg)
+            # Debug: print the raw and parsed sender
+            print(f"[DEBUG] Raw msg['from']: {msg['from']}", flush=True)
+            print(f"[DEBUG] Parsed sender: {sender}", flush=True)
             # Parse date
             try:
                 import email.utils
