@@ -1,5 +1,5 @@
 .env
-app/__pycache__/
+app/__pycache__/*
 app/*.pyc
 app/templates/__pycache__/
 app/templates/*.pyc
