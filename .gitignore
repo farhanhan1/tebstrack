@@ -1,1 +1,8 @@
 .env
+app/__pycache__/
+app/*.pyc
+app/templates/__pycache__/
+app/templates/*.pyc
+app/static/__pycache__/
+app/static/*.pyc
+attachments/
