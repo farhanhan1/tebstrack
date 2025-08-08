@@ -112,8 +112,12 @@
   <div id="actions-dropdown" style="display:none; position:fixed; background:#fff; box-shadow:0 8px 24px rgba(44,62,80,0.18); border-radius:10px; min-width:140px; max-width:150px; z-index:9999; flex-direction:column; border:1px solid #e5e7eb; padding:0.15rem 0;">
     <div style="position:absolute; top:-10px; left:18px; width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:10px solid #fff; z-index:10000;"></div>
     <button type="button" class="actions-dropdown-item" id="close-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Close Selected</button>
+    {% if current_user.role == 'admin' %}
     <button type="button" class="actions-dropdown-item" id="open-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Open Selected</button>
     <button type="button" class="actions-dropdown-item" id="delete-tickets" style="width:100%; background:none; border:none; color:#dc2626; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer;">Delete Selected</button>
+    {% else %}
+    <button type="button" class="actions-dropdown-item" id="open-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer;">Open Selected</button>
+    {% endif %}
   </div>
   <!-- Removed duplicate refresh button script. Only the version with window.__refreshSuccess remains above. -->
   <div class="tickets-table-wrapper">
@@ -314,9 +318,12 @@
     document.getElementById('open-tickets').addEventListener('click', function() {
       performBulkAction('open');
     });
-    document.getElementById('delete-tickets').addEventListener('click', function() {
-      performBulkAction('delete');
-    });
+    var deleteButton = document.getElementById('delete-tickets');
+    if (deleteButton) {
+      deleteButton.addEventListener('click', function() {
+        performBulkAction('delete');
+      });
+    }
     function performBulkAction(action) {
       var selectedIds = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
       if (selectedIds.length === 0) return;

@@ -320,6 +320,7 @@ def create_ticket():
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 @main.route('/bulk_ticket_action', methods=['POST'])
+@login_required
 def bulk_ticket_action():
     data = request.get_json()
     action = data.get('action')
@@ -328,6 +329,23 @@ def bulk_ticket_action():
         return jsonify({'success': False, 'error': 'Missing ticket IDs or action.'}), 400
 
     tickets = Ticket.query.filter(Ticket.id.in_(ticket_ids)).all()
+    
+    # Role-based access control - filter tickets user can modify
+    if current_user.role == 'infra':
+        # Infra users can only modify unassigned tickets or their own assigned tickets
+        allowed_tickets = []
+        for ticket in tickets:
+            if ticket.assigned_to is None or ticket.assigned_to == current_user.id:
+                allowed_tickets.append(ticket)
+        tickets = allowed_tickets
+        
+        # Infra users cannot delete tickets
+        if action == 'delete':
+            return jsonify({'success': False, 'error': 'You do not have permission to delete tickets.'}), 403
+    elif current_user.role != 'admin':
+        # Only admin and infra can perform bulk actions
+        return jsonify({'success': False, 'error': 'You do not have permission to perform bulk actions.'}), 403
+
     affected = 0
     from flask_login import current_user
     username = current_user.username if hasattr(current_user, 'username') else 'Unknown'
@@ -343,8 +361,8 @@ def bulk_ticket_action():
             ticket.status = 'Open'
             db.session.add(TicketLog(user=username, action='Bulk Open', details=f'Ticket opened in bulk for ticket {ticket.id}'))
             affected += 1
-        elif action == 'delete':
-            # Delete related EmailMessages
+        elif action == 'delete' and current_user.role == 'admin':
+            # Only admin can delete
             count = EmailMessage.query.filter(EmailMessage.ticket_id == ticket.id).delete(synchronize_session=False)
             deleted_email_count += count
             db.session.add(TicketLog(user=username, action='Bulk Delete', details=f'Ticket deleted in bulk for ticket {ticket.id} (deleted {count} related emails)'))
@@ -403,6 +421,13 @@ def fetch_emails():
 @main.route('/delete_tickets', methods=['POST'])
 @login_required
 def delete_tickets():
+    # Only admin users can delete tickets
+    if current_user.role != 'admin':
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'You do not have permission to delete tickets.'}), 403
+        flash('You do not have permission to delete tickets.', 'error')
+        return redirect(url_for('main.tickets'))
+    
     ids = request.form.getlist('ticket_ids')
     if not ids and request.is_json:
         ids = request.get_json().get('ticket_ids', [])
@@ -441,17 +466,46 @@ def require_login():
 
 @main.route('/')
 def index():
-    # Quick stats
-    open_count = Ticket.query.filter_by(status='Open').count()
-    urgent_count = Ticket.query.filter_by(urgency='Urgent', status='Open').count()
-    closed_count = Ticket.query.filter_by(status='Closed').count()
+    # Quick stats - filtered by role
+    if current_user.role == 'infra':
+        from sqlalchemy import or_
+        # Infra users stats only for tickets they can see
+        open_count = Ticket.query.filter_by(status='Open').filter(or_(
+            Ticket.assigned_to == None,
+            Ticket.assigned_to == current_user.id
+        )).count()
+        urgent_count = Ticket.query.filter_by(urgency='Urgent', status='Open').filter(or_(
+            Ticket.assigned_to == None,
+            Ticket.assigned_to == current_user.id
+        )).count()
+        closed_count = Ticket.query.filter_by(status='Closed').filter(or_(
+            Ticket.assigned_to == None,
+            Ticket.assigned_to == current_user.id
+        )).count()
+    else:
+        # Admin users see all tickets
+        open_count = Ticket.query.filter_by(status='Open').count()
+        urgent_count = Ticket.query.filter_by(urgency='Urgent', status='Open').count()
+        closed_count = Ticket.query.filter_by(status='Closed').count()
+    
     user_count = User.query.count()
 
-    # Top requestor (by sender)
-    top = db.session.query(Ticket.sender, func.count(Ticket.id).label('count')) \
-        .group_by(Ticket.sender) \
-        .order_by(func.count(Ticket.id).desc()) \
-        .first()
+    # Top requestor (by sender) - filtered by role
+    if current_user.role == 'infra':
+        from sqlalchemy import or_
+        top = db.session.query(Ticket.sender, func.count(Ticket.id).label('count')) \
+            .filter(or_(
+                Ticket.assigned_to == None,
+                Ticket.assigned_to == current_user.id
+            )) \
+            .group_by(Ticket.sender) \
+            .order_by(func.count(Ticket.id).desc()) \
+            .first()
+    else:
+        top = db.session.query(Ticket.sender, func.count(Ticket.id).label('count')) \
+            .group_by(Ticket.sender) \
+            .order_by(func.count(Ticket.id).desc()) \
+            .first()
     top_requestor = {'name': top[0], 'count': top[1]} if top else None
 
     # Ticket stats by month (last 6 months)
@@ -476,8 +530,15 @@ def index():
         'closed': closed_counts
     }
 
-    # Tickets list (for table)
-    tickets = Ticket.query.order_by(Ticket.created_at.desc()).all()
+    # Tickets list (for table) - filtered by role
+    if current_user.role == 'infra':
+        from sqlalchemy import or_
+        tickets = Ticket.query.filter(or_(
+            Ticket.assigned_to == None,
+            Ticket.assigned_to == current_user.id
+        )).order_by(Ticket.created_at.desc()).all()
+    else:
+        tickets = Ticket.query.order_by(Ticket.created_at.desc()).all()
 
     return render_template('home.html',
         open_count=open_count,
@@ -604,6 +665,16 @@ def tickets():
     category = request.args.get('category')
     import datetime
     query = Ticket.query
+    
+    # Role-based filtering: infra users can only see unassigned tickets and their own assigned tickets
+    if current_user.role == 'infra':
+        from sqlalchemy import or_
+        query = query.filter(or_(
+            Ticket.assigned_to == None,  # Unassigned tickets
+            Ticket.assigned_to == current_user.id  # Their own assigned tickets
+        ))
+    # Admin users can see all tickets (no additional filtering needed)
+    
     if month != 'All':
         try:
             month_start = datetime.datetime.strptime(month, '%Y-%m')
@@ -668,9 +739,22 @@ class EditTicketForm(FlaskForm):
 @login_required
 def view_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
+    
+    # Role-based access control: infra users can only view unassigned tickets or their own assigned tickets
+    if current_user.role == 'infra':
+        if ticket.assigned_to is not None and ticket.assigned_to != current_user.id:
+            flash('You do not have permission to view this ticket.', 'error')
+            return redirect(url_for('main.tickets'))
+    
     all_categories = Category.query.order_by(Category.name).all()
     from .models import User, EmailMessage
-    all_users = User.query.order_by(User.username).all()
+    
+    # Filter users based on role for assignment dropdown
+    if current_user.role == 'admin':
+        all_users = User.query.order_by(User.username).all()
+    else:
+        # Infra users only see themselves in assignment options
+        all_users = [current_user]
     # Fetch all EmailMessages for this ticket's thread, ordered by sent_at
     thread_msgs = []
     import os
@@ -743,15 +827,69 @@ def serve_attachment(filename):
 
 # Admin: Edit Ticket page
 
+@main.route('/assign_ticket/<int:ticket_id>', methods=['POST'])
+@login_required
+def assign_ticket(ticket_id):
+    """Allow infra users to assign/unassign themselves to/from tickets"""
+    ticket = Ticket.query.get_or_404(ticket_id)
+    
+    # Role-based access control
+    if current_user.role == 'infra':
+        # Infra users can only view unassigned tickets or their own assigned tickets
+        if ticket.assigned_to is not None and ticket.assigned_to != current_user.id:
+            flash('You do not have permission to modify this ticket.', 'error')
+            return redirect(url_for('main.tickets'))
+        
+        action = request.form.get('action')
+        if action == 'assign':
+            # Can only assign to themselves if ticket is unassigned
+            if ticket.assigned_to is None:
+                ticket.assigned_to = current_user.id
+                flash('Ticket assigned to you successfully.', 'success')
+                from .models import Log
+                log = Log(user=current_user.username, action='assign_ticket', 
+                         details=f"Self-assigned ticket '{ticket.subject}' (ID: {ticket.id})")
+                db.session.add(log)
+            else:
+                flash('This ticket is already assigned.', 'error')
+        elif action == 'unassign':
+            # Can only unassign if assigned to themselves
+            if ticket.assigned_to == current_user.id:
+                ticket.assigned_to = None
+                flash('Ticket unassigned successfully.', 'success')
+                from .models import Log
+                log = Log(user=current_user.username, action='unassign_ticket', 
+                         details=f"Self-unassigned ticket '{ticket.subject}' (ID: {ticket.id})")
+                db.session.add(log)
+            else:
+                flash('You can only unassign tickets assigned to you.', 'error')
+        
+        db.session.commit()
+    else:
+        flash('You do not have permission to perform this action.', 'error')
+    
+    return redirect(url_for('main.view_ticket', ticket_id=ticket_id))
+
 
 @main.route('/edit_ticket/<int:ticket_id>', methods=['GET', 'POST'])
 @login_required
 def edit_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
-    if current_user.role != 'admin':
+    
+    # Role-based access control
+    if current_user.role == 'infra':
+        # Infra users can only edit tickets they can view (unassigned or their own)
+        if ticket.assigned_to is not None and ticket.assigned_to != current_user.id:
+            flash('You do not have permission to edit this ticket.', 'error')
+            return redirect(url_for('main.tickets'))
+    elif current_user.role != 'admin':
+        # Only admin and infra users can edit tickets
+        flash('You do not have permission to edit tickets.', 'error')
         return redirect(url_for('main.index'))
+    
     infra_users = User.query.filter_by(role='infra').order_by(User.username).all()
     form = EditTicketForm(obj=ticket)
+    
     if form.validate_on_submit():
         import bleach
         changes = []
@@ -779,6 +917,17 @@ def edit_ticket(ticket_id):
             'created_at': bleach.clean(form.created_at.data) if hasattr(form, 'created_at') and form.created_at.data else old['created_at'],
             'updated_at': bleach.clean(form.updated_at.data) if hasattr(form, 'updated_at') and form.updated_at.data else old['updated_at']
         }
+        
+        # Role-based assignment restrictions
+        if current_user.role == 'infra':
+            # Infra users can only assign to themselves or unassign
+            if new['assigned_to'] is not None and new['assigned_to'] != current_user.id:
+                flash('You can only assign tickets to yourself or leave them unassigned.', 'error')
+                return render_template('edit_ticket.html', ticket=ticket, infra_users=infra_users, form=form)
+            # Infra users cannot modify certain fields
+            new['sender'] = old['sender']  # Keep original sender
+            new['created_at'] = old['created_at']  # Keep original creation date
+        
         user_map = {u.id: u.username for u in User.query.all()}
         for field in old:
             old_val = old[field]
