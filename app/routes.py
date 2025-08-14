@@ -130,11 +130,49 @@ def favicon():
 @main.route('/settings', methods=['GET'])
 @login_required
 def settings():
+    from app.models import UserSettings
+    # Get user settings for all users
+    user_settings = UserSettings.get_user_settings(current_user.id)
+    
     # Only admin can manage categories
     if current_user.role != 'admin':
-        return render_template('settings.html', all_categories=[], current_user=current_user)
-    all_categories = Category.query.order_by(Category.name).all()
-    return render_template('settings.html', all_categories=all_categories, current_user=current_user)
+        all_categories = []
+    else:
+        all_categories = Category.query.order_by(Category.name).all()
+    
+    return render_template('settings.html', 
+                         all_categories=all_categories, 
+                         current_user=current_user,
+                         user_settings=user_settings)
+
+@main.route('/update_pagination_settings', methods=['POST'])
+@login_required
+def update_pagination_settings():
+    from app.models import UserSettings
+    
+    pagination_enabled = request.form.get('pagination_enabled') == 'on'
+    tickets_per_page = request.form.get('tickets_per_page', 10, type=int)
+    
+    # Validate tickets_per_page - allow custom values from 1 to 500
+    if tickets_per_page < 1:
+        tickets_per_page = 1
+        flash('Tickets per page cannot be less than 1. Set to minimum value of 1.', 'warning')
+    elif tickets_per_page > 500:
+        tickets_per_page = 500
+        flash('Tickets per page cannot exceed 500. Set to maximum value of 500.', 'warning')
+    
+    # Get or create user settings
+    user_settings = UserSettings.get_user_settings(current_user.id)
+    user_settings.pagination_enabled = pagination_enabled
+    user_settings.tickets_per_page = tickets_per_page
+    
+    db.session.commit()
+    
+    if pagination_enabled:
+        flash(f'Pagination enabled with {tickets_per_page} tickets per page!', 'success')
+    else:
+        flash('Pagination disabled successfully!', 'success')
+    return redirect(url_for('main.settings'))
 
 @main.route('/add_category', methods=['POST'])
 @login_required
@@ -660,11 +698,19 @@ def test_session():
 @main.route('/tickets')
 @login_required
 def tickets():
+    from app.models import UserSettings
+    
+    # Get user pagination settings
+    user_settings = UserSettings.get_user_settings(current_user.id)
+    
     # Filters
-
     month = request.args.get('month', 'All')
     status = request.args.get('status', 'All')
     category = request.args.get('category')
+    
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    
     import datetime
     query = Ticket.query
     
@@ -688,14 +734,34 @@ def tickets():
         query = query.filter(Ticket.status == status)
     if category and category != 'All':
         query = query.filter(Ticket.category == category)
-    tickets = query.order_by(Ticket.created_at.desc()).all()
+    
+    # Apply pagination if enabled
+    if user_settings.pagination_enabled:
+        pagination = query.order_by(Ticket.created_at.desc()).paginate(
+            page=page,
+            per_page=user_settings.tickets_per_page,
+            error_out=False
+        )
+        tickets = pagination.items
+        total_tickets = pagination.total
+    else:
+        tickets = query.order_by(Ticket.created_at.desc()).all()
+        pagination = None
+        total_tickets = len(tickets)
 
-    # Key stats
-    tickets_raised = len(tickets)
+    # Key stats (use all tickets for stats, not just current page)
+    all_tickets_query = query
+    if user_settings.pagination_enabled:
+        all_tickets_for_stats = all_tickets_query.all()
+        tickets_raised = len(all_tickets_for_stats)
+    else:
+        tickets_raised = len(tickets)
+        all_tickets_for_stats = tickets
+    
     from collections import Counter
-    most_common_category = Counter([t.category for t in tickets if t.category]).most_common(1)
+    most_common_category = Counter([t.category for t in all_tickets_for_stats if t.category]).most_common(1)
     most_common_category = most_common_category[0][0] if most_common_category else '-'
-    most_common_requestor = Counter([t.sender for t in tickets if t.sender]).most_common(1)
+    most_common_requestor = Counter([t.sender for t in all_tickets_for_stats if t.sender]).most_common(1)
     most_common_requestor = most_common_requestor[0][0] if most_common_requestor else '-'
 
     # For dropdowns
@@ -717,7 +783,9 @@ def tickets():
         tickets_raised=tickets_raised,
         most_common_category=most_common_category,
         most_common_requestor=most_common_requestor,
-        user_map=user_map
+        user_map=user_map,
+        pagination=pagination,
+        user_settings=user_settings
     )
 
 @main.route('/export_tickets', methods=['GET', 'POST'])

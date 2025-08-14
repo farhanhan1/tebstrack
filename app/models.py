@@ -38,6 +38,24 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(150), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='infra')  # 'admin' or 'infra'
 
+class UserSettings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    pagination_enabled = db.Column(db.Boolean, default=False)
+    tickets_per_page = db.Column(db.Integer, default=10)
+    
+    user = db.relationship('User', backref=db.backref('settings', uselist=False))
+
+    @classmethod
+    def get_user_settings(cls, user_id):
+        """Get or create user settings with defaults"""
+        settings = cls.query.filter_by(user_id=user_id).first()
+        if not settings:
+            settings = cls(user_id=user_id, pagination_enabled=False, tickets_per_page=10)
+            db.session.add(settings)
+            db.session.commit()
+        return settings
+
 
 class Log(db.Model):
     id = db.Column(db.Integer, primary_key=True)

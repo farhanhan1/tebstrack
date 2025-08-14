@@ -260,6 +260,60 @@
         </tbody>
       </table>
     </form>
+    
+    <!-- Pagination Controls -->
+    {% if user_settings.pagination_enabled and pagination %}
+    <div style="display: flex; justify-content: center; align-items: center; margin: 2rem 0; gap: 1rem;">
+      <!-- Previous Page -->
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('main.tickets', page=pagination.prev_num, month=month, status=status, category=category) }}" 
+           style="background: #4f8cff; color: #fff; text-decoration: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; transition: background 0.2s;">
+          Previous
+        </a>
+      {% else %}
+        <span style="background: #e5e7eb; color: #9ca3af; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600;">
+          Previous
+        </span>
+      {% endif %}
+      
+      <!-- Page Numbers -->
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        {% for page_num in pagination.iter_pages() %}
+          {% if page_num %}
+            {% if page_num != pagination.page %}
+              <a href="{{ url_for('main.tickets', page=page_num, month=month, status=status, category=category) }}" 
+                 style="background: #f3f4f6; color: #374151; text-decoration: none; padding: 0.5rem 0.75rem; border-radius: 6px; font-weight: 500; transition: background 0.2s;">
+                {{ page_num }}
+              </a>
+            {% else %}
+              <span style="background: #4f8cff; color: #fff; padding: 0.5rem 0.75rem; border-radius: 6px; font-weight: 600;">
+                {{ page_num }}
+              </span>
+            {% endif %}
+          {% else %}
+            <span style="color: #9ca3af; padding: 0.5rem 0.25rem;">…</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+      
+      <!-- Next Page -->
+      {% if pagination.has_next %}
+        <a href="{{ url_for('main.tickets', page=pagination.next_num, month=month, status=status, category=category) }}" 
+           style="background: #4f8cff; color: #fff; text-decoration: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; transition: background 0.2s;">
+          Next
+        </a>
+      {% else %}
+        <span style="background: #e5e7eb; color: #9ca3af; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600;">
+          Next
+        </span>
+      {% endif %}
+    </div>
+    
+    <!-- Pagination Info -->
+    <div style="text-align: center; color: #6b7280; font-size: 0.9rem; margin-bottom: 1rem;">
+      Showing {{ ((pagination.page - 1) * pagination.per_page + 1) }} to {{ (pagination.page * pagination.per_page) if pagination.page * pagination.per_page <= pagination.total else pagination.total }} of {{ pagination.total }} tickets
+    </div>
+    {% endif %}
     <script>
       document.addEventListener('DOMContentLoaded', function() {
       var selectAll = document.getElementById('select-all-tickets');

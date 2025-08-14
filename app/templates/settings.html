@@ -1,36 +1,178 @@
 {% extends 'base.html' %}
 {% block content %}
+<!-- Success Popup -->
+<div id="success-popup" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 10000; background: #10b981; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-weight: 600; font-size: 1rem; max-width: 300px;">
+  <div style="display: flex; align-items: center; gap: 0.5rem;">
+    <span style="font-size: 1.2rem;">✓</span>
+    <span id="success-message">Settings saved successfully!</span>
+  </div>
+</div>
+
 <div class="settings-container" style="max-width: 600px; margin: 40px auto; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(79,140,255,0.10), 0 1.5px 8px rgba(0,0,0,0.04); padding: 2.5rem 2rem 2rem 2rem;">
-  <h1 style="color: #4f8cff; font-size: 2rem; font-weight: 700; margin-bottom: 2rem; letter-spacing: 1px; text-align: left;">Manage Categories</h1>
+  <h1 style="color: #4f8cff; font-size: 2rem; font-weight: 700; margin-bottom: 2rem; letter-spacing: 1px; text-align: left;">Settings</h1>
+  
+  <!-- Pagination Settings (visible to all users) -->
+  <div style="margin-bottom: 3rem; padding: 1.5rem; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+    <h2 style="color: #2d3a4b; font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem;">Pagination Settings</h2>
+    <form method="post" action="{{ url_for('main.update_pagination_settings') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #374151; cursor: pointer;">
+          <input type="checkbox" name="pagination_enabled" {% if user_settings.pagination_enabled %}checked{% endif %} 
+                 style="width: 1.2rem; height: 1.2rem; border-radius: 4px; border: 2px solid #d1d5db; accent-color: #4f8cff;">
+          Enable pagination for tickets page
+        </label>
+      </div>
+      <div style="margin-bottom: 1.5rem;" id="tickets-per-page-container">
+        <label style="display: block; font-weight: 500; color: #374151; margin-bottom: 0.5rem;">Tickets per page:</label>
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <select name="tickets_per_page_preset" id="tickets-per-page-preset" style="padding: 0.5rem 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; min-width: 120px;">
+            <option value="">Custom</option>
+            <option value="5" {% if user_settings.tickets_per_page == 5 %}selected{% endif %}>5</option>
+            <option value="10" {% if user_settings.tickets_per_page == 10 %}selected{% endif %}>10</option>
+            <option value="20" {% if user_settings.tickets_per_page == 20 %}selected{% endif %}>20</option>
+            <option value="50" {% if user_settings.tickets_per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if user_settings.tickets_per_page == 100 %}selected{% endif %}>100</option>
+          </select>
+          <span style="color: #6b7280; font-weight: 500;">or</span>
+          <input type="number" name="tickets_per_page" id="custom-tickets-per-page" 
+                 value="{{ user_settings.tickets_per_page }}" 
+                 min="1" max="500" placeholder="Enter custom value"
+                 style="padding: 0.5rem 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; width: 160px;">
+        </div>
+        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
+          Choose a preset value or enter a custom number (1-500)
+        </div>
+      </div>
+      <button type="submit" style="background: #4f8cff; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.5rem; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; box-shadow: 0 1px 4px rgba(79,140,255,0.08);">
+        Save Settings
+      </button>
+    </form>
+  </div>
+
+  <!-- Category Management (admin only) -->
   {% if current_user.role == 'admin' %}
-  <form method="post" action="{{ url_for('main.add_category') }}" style="margin-bottom:2rem; display:flex; gap:1rem; align-items:center;">
-    <input type="text" name="category" placeholder="New Category" required style="flex:1; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
-    <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Add</button>
-  </form>
-  <table style="width:100%; border-collapse:separate; border-spacing:0 0.5rem;">
-    <thead>
-      <tr><th style="text-align:left; background:#f4f6fb; color:#4f8cff; font-weight:600; padding:0.7rem 1rem; border-radius:8px 0 0 8px;">Category</th><th style="background:#f4f6fb; color:#4f8cff; font-weight:600; padding:0.7rem 1rem; border-radius:0 8px 8px 0;">Actions</th></tr>
-    </thead>
-    <tbody>
-      {% for cat in all_categories %}
-      <tr class="category-row">
-        <td style="padding:0.7rem 1rem; background:#f9fafb; border-radius:8px 0 0 8px; font-size:1.08rem; color:#2d3a4b;">
-          <span class="category-name">{{ cat.name }}</span>
-          <input type="text" class="edit-category-field" value="{{ cat.name }}" style="display:none; padding:0.3rem 0.7rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem; margin-left:0.5rem;">
-        </td>
-        <td style="padding:0.7rem 1rem; background:#f9fafb; border-radius:0 8px 8px 0;">
-          <!-- Edit button removed as requested -->
-          <form method="post" action="{{ url_for('main.delete_category', category=cat.name) }}" style="display:inline-block;">
-            <button type="submit" style="background:#dc2626; color:#fff; border:none; border-radius:6px; padding:0.3rem 0.9rem; font-weight:700; font-size:1rem; cursor:pointer;">Delete</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div style="color:#dc2626; font-weight:700; font-size:1.1rem; text-align:center; margin-top:2rem;">You do not have permission to manage categories.</div>
+  <div style="padding: 1.5rem; background: #fef7ff; border-radius: 12px; border: 1px solid #e9d5ff;">
+    <h2 style="color: #7c3aed; font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem;">Manage Categories</h2>
+    <form method="post" action="{{ url_for('main.add_category') }}" style="margin-bottom:2rem; display:flex; gap:1rem; align-items:center;">
+      <input type="text" name="category" placeholder="New Category" required style="flex:1; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
+      <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Add</button>
+    </form>
+    <table style="width:100%; border-collapse:separate; border-spacing:0 0.5rem;">
+      <thead>
+        <tr><th style="text-align:left; background:#f4f6fb; color:#4f8cff; font-weight:600; padding:0.7rem 1rem; border-radius:8px 0 0 8px;">Category</th><th style="background:#f4f6fb; color:#4f8cff; font-weight:600; padding:0.7rem 1rem; border-radius:0 8px 8px 0;">Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for cat in all_categories %}
+        <tr class="category-row">
+          <td style="padding:0.7rem 1rem; background:#f9fafb; border-radius:8px 0 0 8px; font-size:1.08rem; color:#2d3a4b;">
+            <span class="category-name">{{ cat.name }}</span>
+            <input type="text" class="edit-category-field" value="{{ cat.name }}" style="display:none; padding:0.3rem 0.7rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem; margin-left:0.5rem;">
+          </td>
+          <td style="padding:0.7rem 1rem; background:#f9fafb; border-radius:0 8px 8px 0;">
+            <!-- Edit button removed as requested -->
+            <form method="post" action="{{ url_for('main.delete_category', category=cat.name) }}" style="display:inline-block;">
+              <button type="submit" style="background:#dc2626; color:#fff; border:none; border-radius:6px; padding:0.3rem 0.9rem; font-weight:700; font-size:1rem; cursor:pointer;">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 </div>
+
+<script>
+// Success popup functionality
+function showSuccessPopup(message) {
+  const popup = document.getElementById('success-popup');
+  const messageElement = document.getElementById('success-message');
+  
+  messageElement.textContent = message;
+  popup.style.display = 'block';
+  
+  // Auto-hide after 3 seconds
+  setTimeout(() => {
+    popup.style.display = 'none';
+  }, 3000);
+}
+
+// Show popup if there are flash messages
+document.addEventListener('DOMContentLoaded', function() {
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for message in messages %}
+        showSuccessPopup('{{ message }}');
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+});
+
+// Show/hide tickets per page setting based on pagination checkbox
+document.addEventListener('DOMContentLoaded', function() {
+  const paginationCheckbox = document.querySelector('input[name="pagination_enabled"]');
+  const ticketsPerPageContainer = document.getElementById('tickets-per-page-container');
+  const presetSelect = document.getElementById('tickets-per-page-preset');
+  const customInput = document.getElementById('custom-tickets-per-page');
+  
+  function toggleTicketsPerPage() {
+    if (paginationCheckbox.checked) {
+      ticketsPerPageContainer.style.display = 'block';
+    } else {
+      ticketsPerPageContainer.style.display = 'none';
+    }
+  }
+  
+  // Set initial state
+  toggleTicketsPerPage();
+  
+  // Check if current value matches any preset
+  function updatePresetSelection() {
+    const currentValue = customInput.value;
+    const presetOptions = presetSelect.querySelectorAll('option[value]:not([value=""])');
+    let foundMatch = false;
+    
+    presetOptions.forEach(option => {
+      if (option.value === currentValue) {
+        presetSelect.value = currentValue;
+        foundMatch = true;
+      }
+    });
+    
+    if (!foundMatch) {
+      presetSelect.value = '';
+    }
+  }
+  
+  // Initialize preset selection
+  updatePresetSelection();
+  
+  // Handle preset selection
+  presetSelect.addEventListener('change', function() {
+    if (this.value !== '') {
+      customInput.value = this.value;
+    }
+  });
+  
+  // Handle custom input changes
+  customInput.addEventListener('input', function() {
+    // Validate input
+    let value = parseInt(this.value);
+    if (isNaN(value) || value < 1) {
+      value = 1;
+      this.value = value;
+    } else if (value > 500) {
+      value = 500;
+      this.value = value;
+    }
+    
+    // Update preset selection
+    updatePresetSelection();
+  });
+  
+  // Listen for pagination checkbox changes
+  paginationCheckbox.addEventListener('change', toggleTicketsPerPage);
+});
+</script>
 {% endblock %}
-<script src="{{ url_for('static', filename='category_edit.js') }}"></script>
