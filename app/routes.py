@@ -4,7 +4,7 @@ from flask_login import login_required
 
 import logging
 
-from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify, send_from_directory
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify, send_from_directory, make_response
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField
 from wtforms.validators import DataRequired, Length
@@ -15,6 +15,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from sqlalchemy import func
 import datetime
+import csv
+import io
 from .fetch_emails_util import fetch_and_store_emails
 from app.extensions import csrf
 import bleach
@@ -717,6 +719,148 @@ def tickets():
         most_common_requestor=most_common_requestor,
         user_map=user_map
     )
+
+@main.route('/export_tickets', methods=['GET', 'POST'])
+@login_required
+def export_tickets():
+    """Export tickets to CSV or XLSX format"""
+    export_format = request.args.get('format', 'csv').lower()
+    month = request.args.get('month', 'All')
+    status = request.args.get('status', 'All')
+    category = request.args.get('category', 'All')
+    
+    # Handle None or empty string values
+    if not month or month == 'None':
+        month = 'All'
+    if not status or status == 'None':
+        status = 'All'
+    if not category or category == 'None':
+        category = 'All'
+    
+    # Debug info
+    print(f"[DEBUG] Export params: format={export_format}, month={month}, status={status}, category={category}", flush=True)
+    
+    # Check if specific ticket IDs were provided (for selected tickets)
+    selected_ticket_ids = None
+    if request.method == 'POST':
+        data = request.get_json()
+        if data and 'ticket_ids' in data:
+            selected_ticket_ids = data['ticket_ids']
+            print(f"[DEBUG] Selected ticket IDs: {selected_ticket_ids}", flush=True)
+    
+    # Apply same filtering logic as tickets route
+    query = Ticket.query
+    
+    # If specific ticket IDs provided, filter by those first
+    if selected_ticket_ids:
+        query = query.filter(Ticket.id.in_(selected_ticket_ids))
+    
+    # Role-based filtering
+    if current_user.role == 'infra':
+        from sqlalchemy import or_
+        query = query.filter(or_(
+            Ticket.assigned_to == None,
+            Ticket.assigned_to == current_user.id
+        ))
+    
+    # Apply filters only if not exporting selected tickets
+    if not selected_ticket_ids:
+        if month != 'All':
+            try:
+                year, month_num = month.split('-')
+                start_date = datetime.datetime(int(year), int(month_num), 1)
+                if int(month_num) == 12:
+                    end_date = datetime.datetime(int(year) + 1, 1, 1)
+                else:
+                    end_date = datetime.datetime(int(year), int(month_num) + 1, 1)
+                query = query.filter(Ticket.created_at >= start_date, Ticket.created_at < end_date)
+            except ValueError:
+                pass
+        
+        if status and status != 'All':
+            query = query.filter(Ticket.status == status)
+        
+        if category and category != 'All':
+            query = query.filter(Ticket.category == category)
+    
+    tickets = query.order_by(Ticket.created_at.desc()).all()
+    print(f"[DEBUG] Found {len(tickets)} tickets for export", flush=True)
+    
+    user_map = {u.id: u.username for u in User.query.all()}
+    
+    # Prepare data for export
+    headers = [
+        'S/N', 'Issue Reported Date', 'Category', 'Ticket Name', 'Request by',
+        'Status', 'Resolution', 'Assignee', 'Urgency', 'Date of Completion'
+    ]
+    
+    rows = []
+    for ticket in tickets:
+        row = [
+            ticket.id,
+            ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-',
+            ticket.category or '-',
+            ticket.subject,
+            ticket.sender if ticket.sender else '-',
+            ticket.status,
+            ticket.resolution if ticket.status == 'Closed' and ticket.resolution else '-',
+            user_map.get(ticket.assigned_to, '-') if ticket.assigned_to else '-',
+            ticket.urgency or '-',
+            ticket.updated_at.strftime('%Y-%m-%d') if ticket.status == 'Closed' and ticket.updated_at else '-'
+        ]
+        rows.append(row)
+    
+    if export_format == 'xlsx':
+        try:
+            import openpyxl
+            from openpyxl.utils import get_column_letter
+            
+            # Create workbook and worksheet
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Tickets"
+            
+            # Add headers
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=1, column=col, value=header)
+            
+            # Add data
+            for row_idx, row_data in enumerate(rows, 2):
+                for col_idx, value in enumerate(row_data, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=value)
+            
+            # Auto-adjust column widths
+            for col in range(1, len(headers) + 1):
+                ws.column_dimensions[get_column_letter(col)].auto_size = True
+            
+            # Save to memory
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+            
+            response = make_response(output.getvalue())
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            response.headers['Content-Disposition'] = f'attachment; filename=tickets_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            return response
+            
+        except ImportError:
+            flash('XLSX export requires openpyxl package. Falling back to CSV.', 'warning')
+            export_format = 'csv'
+    
+    if export_format == 'csv':
+        # Create CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        writer.writerows(rows)
+        
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=tickets_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        return response
+    
+    flash('Invalid export format specified.', 'error')
+    return redirect(url_for('main.tickets'))
 
 
 from flask_wtf import FlaskForm

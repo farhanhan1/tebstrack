@@ -108,6 +108,7 @@
     <button type="button" id="actions-btn" style="background: #6b7280; color: #fff; border: none; border-radius: 6px; padding: 0.38rem 1.1rem; font-weight: 700; font-size: 1rem; margin-left:0.5rem; box-shadow: 0 1px 4px rgba(107,114,128,0.08); cursor: not-allowed; opacity:0.6; position:relative;">Actions</button>
     <button type="button" id="open-create-ticket-modal" class="create-ticket-btn" style="margin-left:0.5rem; background:#2563eb; color: #fff; border: none; cursor: pointer; font-weight: 700; border-radius: 6px; padding: 0.38rem 1.1rem; font-size: 1rem; box-shadow: 0 1px 4px rgba(37,99,235,0.08); text-decoration: none; display: inline-block; transition: background 0.2s;">Create</button>
     <button id="refresh-emails-btn" style="margin-left:0.5rem; background:#059669; color:#fff; border:none; border-radius:8px; padding:0.38rem 1.1rem; font-weight:700; font-size:1rem; box-shadow:0 1px 4px rgba(5,150,105,0.08); cursor:pointer; align-self:center; transition:background 0.2s;">Refresh</button>
+    <button type="button" id="export-btn" style="margin-left:0.5rem; background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:0.38rem 1.1rem; font-weight:700; font-size:1rem; box-shadow:0 1px 4px rgba(124,58,237,0.08); cursor:pointer; align-self:center; transition:background 0.2s; position:relative;">Export</button>
   </form>
   <div id="actions-dropdown" style="display:none; position:fixed; background:#fff; box-shadow:0 8px 24px rgba(44,62,80,0.18); border-radius:10px; min-width:140px; max-width:150px; z-index:9999; flex-direction:column; border:1px solid #e5e7eb; padding:0.15rem 0;">
     <div style="position:absolute; top:-10px; left:18px; width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:10px solid #fff; z-index:10000;"></div>
@@ -118,6 +119,11 @@
     {% else %}
     <button type="button" class="actions-dropdown-item" id="open-tickets" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer;">Open Selected</button>
     {% endif %}
+  </div>
+  <div id="export-dropdown" style="display:none; position:fixed; background:#fff; box-shadow:0 8px 24px rgba(44,62,80,0.18); border-radius:10px; min-width:140px; max-width:150px; z-index:9999; flex-direction:column; border:1px solid #e5e7eb; padding:0.15rem 0;">
+    <div style="position:absolute; top:-10px; left:18px; width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:10px solid #fff; z-index:10000;"></div>
+    <button type="button" class="export-dropdown-item" id="export-xlsx" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer; border-bottom:1px solid #e5e7eb;">Export as XLSX</button>
+    <button type="button" class="export-dropdown-item" id="export-csv" style="width:100%; background:none; border:none; color:#2d3a4b; padding:0.6rem 0.8rem; text-align:left; font-size:1rem; cursor:pointer;">Export as CSV</button>
   </div>
   <!-- Removed duplicate refresh button script. Only the version with window.__refreshSuccess remains above. -->
   <div class="tickets-table-wrapper">
@@ -196,6 +202,17 @@
       }
     });
   </script>
+  <!-- Export Confirmation Modal -->
+  <div id="export-confirmation-modal" class="modal" style="display:none; position:fixed; z-index:1001; left:0; top:0; width:100vw; height:100vh; overflow:auto; background:rgba(44,62,80,0.7); justify-content:center; align-items:center;">
+    <div class="modal-content" style="background:#fff; margin:5% auto; border-radius:16px; padding:2.2rem 2.5rem 2rem 2.5rem; max-width:420px; box-shadow:0 8px 32px rgba(79,140,255,0.18); position:relative;">
+      <h2 style="color:#7c3aed; font-size:1.45rem; font-weight:700; margin-bottom:1.2rem;">Export tickets</h2>
+      <p style="color:#6b7280; font-size:1rem; margin-bottom:1.5rem; line-height:1.5;">Export could take some time depending on the number of tickets</p>
+      <div style="display:flex; gap:1rem; justify-content:flex-end;">
+        <button type="button" id="export-cancel" style="background:#6b7280; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1rem; cursor:pointer; transition:background 0.2s;">No</button>
+        <button type="button" id="export-continue" style="background:#7c3aed; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1rem; cursor:pointer; transition:background 0.2s;">Continue</button>
+      </div>
+    </div>
+  </div>
     <form id="delete-tickets-form" method="post" action="{{ url_for('main.delete_tickets') }}">
       <!-- Delete Selected button moved inline above -->
       <table class="ticket-table">
@@ -348,6 +365,110 @@
         alert('Error: Could not perform action.');
       });
     }
+    
+    // Export functionality
+    var exportBtn = document.getElementById('export-btn');
+    var exportDropdown = document.getElementById('export-dropdown');
+    var exportModal = document.getElementById('export-confirmation-modal');
+    var exportCancelBtn = document.getElementById('export-cancel');
+    var exportContinueBtn = document.getElementById('export-continue');
+    var selectedExportFormat = '';
+    
+    // Export button click
+    exportBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      // Position dropdown below button
+      var rect = exportBtn.getBoundingClientRect();
+      exportDropdown.style.top = (rect.bottom + window.scrollY + 8) + 'px';
+      exportDropdown.style.left = (rect.left + window.scrollX) + 'px';
+      exportDropdown.style.display = exportDropdown.style.display === 'block' ? 'none' : 'block';
+    });
+    
+    // Close export dropdown when clicking elsewhere
+    window.addEventListener('click', function(e) {
+      if (!exportBtn.contains(e.target) && !exportDropdown.contains(e.target)) {
+        exportDropdown.style.display = 'none';
+      }
+    });
+    
+    // Export format selection
+    document.getElementById('export-xlsx').addEventListener('click', function() {
+      selectedExportFormat = 'xlsx';
+      exportDropdown.style.display = 'none';
+      exportModal.style.display = 'flex';
+    });
+    
+    document.getElementById('export-csv').addEventListener('click', function() {
+      selectedExportFormat = 'csv';
+      exportDropdown.style.display = 'none';
+      exportModal.style.display = 'flex';
+    });
+    
+    // Cancel export
+    exportCancelBtn.addEventListener('click', function() {
+      exportModal.style.display = 'none';
+      selectedExportFormat = '';
+    });
+    
+    // Continue export
+    exportContinueBtn.addEventListener('click', function() {
+      exportModal.style.display = 'none';
+      if (selectedExportFormat) {
+        // Check if any tickets are selected
+        var selectedTickets = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        
+        if (selectedTickets.length > 0) {
+          // Export selected tickets via POST
+          fetch('{{ url_for('main.export_tickets') }}?format=' + selectedExportFormat, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ ticket_ids: selectedTickets })
+          })
+          .then(function(response) {
+            if (response.ok) {
+              // Create a blob from the response and download it
+              return response.blob();
+            }
+            throw new Error('Export failed');
+          })
+          .then(function(blob) {
+            var url = window.URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'selected_tickets_' + new Date().toISOString().slice(0,19).replace(/[:]/g, '-') + '.' + selectedExportFormat;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+          })
+          .catch(function(error) {
+            alert('Error exporting selected tickets: ' + error.message);
+          });
+        } else {
+          // Export all tickets with current filters via GET
+          var params = new URLSearchParams();
+          params.append('format', selectedExportFormat);
+          params.append('month', '{{ month or "All" }}');
+          params.append('status', '{{ status or "All" }}');
+          params.append('category', '{{ category or "All" }}');
+          
+          window.location.href = '{{ url_for('main.export_tickets') }}?' + params.toString();
+        }
+      }
+      selectedExportFormat = '';
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+      if (event.target === exportModal) {
+        exportModal.style.display = 'none';
+        selectedExportFormat = '';
+      }
+    });
     </script>
   </div>
 </div>
