@@ -67,6 +67,9 @@
   <h2 class="ticket-detail-title" style="font-size: 1.2rem; margin-bottom: 0.7rem;">Email Thread</h2>
   {% include '_reply_box.html' %}
   {% if thread_msgs and thread_msgs|length > 0 %}
+    <!-- Create a set to track shown attachment filenames (normalize by removing random prefixes) -->
+    {% set shown_attachments = [] %}
+    
     <div style="display: flex; flex-direction: column-reverse; gap: 1.5rem;">
       {% for msg in thread_msgs|reverse %}
         <div style="background: #f4f6fb; border-radius: 10px; box-shadow: 0 1px 4px rgba(79,140,255,0.06); padding: 1.1rem 1.3rem;">
@@ -99,11 +102,63 @@
             {% endmacro %}
             {% set quoted_split = msg.body.split('\n________________________________', 1) %}
             {% if quoted_split|length == 2 %}
-              <div style="white-space: pre-line;">{{ quoted_split[0]|trim }}</div>
+              <!-- Message has history separated by ________________________________ -->
+              {% set main_content = quoted_split[0]|trim %}
+              {% set history_content = quoted_split[1] %}
+              
+              <div style="white-space: pre-line;">{{ main_content }}</div>
+              
+              <!-- Show attachments - clean version -->
+              {% if msg.attachments and msg.attachments|length > 0 %}
+                {% set new_attachments = [] %}
+                {% for att in msg.attachments %}
+                  {% set att_filename = att.url.split('/')[-1] if '/' in att.url else att.url %}
+                  {% if '_' in att_filename %}
+                    {% set normalized_name = att_filename.split('_', 1)[1] %}
+                  {% else %}
+                    {% set normalized_name = att_filename %}
+                  {% endif %}
+                  
+                  {% if normalized_name not in shown_attachments %}
+                    {% set _ = new_attachments.append(att) %}
+                    {% set _ = shown_attachments.append(normalized_name) %}
+                  {% endif %}
+                {% endfor %}
+                
+                {% if new_attachments|length > 0 %}
+                  <div style="margin-top:0.7rem;">
+                    <span style="font-weight:600; color:#4f8cff;">Attachments:</span>
+                    <ul style="list-style:none; padding-left:0; margin:0;">
+                      {% for att in new_attachments %}
+                        <li style="margin-bottom:0.3em;">
+                          {% set att_filename = att.url.split('/')[-1] if '/' in att.url else att.url %}
+                          {% if att.is_image %}
+                            <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
+                            <br>
+                            <img src="{{ url_for('main.serve_attachment', filename=att_filename) }}" alt="{{ att.filename }}" style="max-width:220px; max-height:120px; margin-top:0.3em; border-radius:6px; border:1px solid #e5e7eb;">
+                          {% else %}
+                            <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
+                            <span style="color:#888; font-size:0.97em;">(Download)</span>
+                          {% endif %}
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                {% endif %}
+              {% endif %}
+              
               <div>
                 <a href="#" class="toggle-history" onclick="toggleHistory(this); return false;" style="color:#2563eb; font-size:0.97em; text-decoration:underline; cursor:pointer;">Show message history</a>
                 <div class="message-history" style="display:none; margin-top:0.5em; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb; padding:0.7em 1em; color:#888; font-size:0.97em;">
-                  __________________________________<br>{{ collapse_blanklines_preserve(quoted_split[1]) }}
+                  __________________________________<br>{{ collapse_blanklines_preserve(history_content) }}
+                  {% if msg.attachments and msg.attachments|length > 0 and not ('[cid:' in msg.body and main_content|length > 50) %}
+                    <div style="margin-top:0.5em; padding-top:0.5em; border-top:1px solid #e5e7eb;">
+                      <span style="color:#666; font-size:0.9em;">Attachments from previous messages:</span><br>
+                      {% for att in msg.attachments %}
+                        <span style="color:#666; font-size:0.9em;">{{ att.filename }}</span>{% if not loop.last %}, {% endif %}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
                 </div>
               </div>
             {% else %}
@@ -111,38 +166,122 @@
               {% set wrote_pat = '\nwrote:' %}
               {% set wrote_end = msg.body.find(wrote_pat, wrote_idx+1) if wrote_idx != -1 else -1 %}
               {% if wrote_idx != -1 and wrote_end != -1 %}
-                <div style="white-space: pre-line;">{{ msg.body[:wrote_idx]|trim }}</div>
+                <!-- Message has history separated by "On ... wrote:" -->
+                {% set main_content = msg.body[:wrote_idx]|trim %}
+                {% set history_content = msg.body[wrote_idx:] %}
+                
+                <div style="white-space: pre-line;">{{ main_content }}</div>
+                
+                <!-- Show attachments - simplified logic for debugging -->
+                {% if msg.attachments and msg.attachments|length > 0 %}
+                  <!-- Always show attachments for now, but with deduplication -->
+                  {% set new_attachments = [] %}
+                  {% for att in msg.attachments %}
+                    {% set att_filename = att.url.split('/')[-1] if '/' in att.url else att.url %}
+                    <!-- Normalize filename by removing random prefix (everything before first underscore) -->
+                    {% if '_' in att_filename %}
+                      {% set normalized_name = att_filename.split('_', 1)[1] %}
+                    {% else %}
+                      {% set normalized_name = att_filename %}
+                    {% endif %}
+                    
+                    {% if normalized_name not in shown_attachments %}
+                      {% set _ = new_attachments.append(att) %}
+                      {% set _ = shown_attachments.append(normalized_name) %}
+                    {% endif %}
+                  {% endfor %}
+                  
+                  {% if new_attachments|length > 0 %}
+                    <div style="margin-top:0.7rem;">
+                      <span style="font-weight:600; color:#4f8cff;">Attachments:</span>
+                      <ul style="list-style:none; padding-left:0; margin:0;">
+                        {% for att in new_attachments %}
+                          <li style="margin-bottom:0.3em;">
+                            {% set att_filename = att.url.split('/')[-1] if '/' in att.url else att.url %}
+                            <!-- Debug info -->
+                            <div style="font-size:0.8em; color:#999; margin-bottom:0.2em;">
+                              Original: {{ att_filename }} | 
+                              {% if '_' in att_filename %}Normalized: {{ att_filename.split('_', 1)[1] }}{% else %}Normalized: {{ att_filename }}{% endif %}
+                            </div>
+                            {% if att.is_image %}
+                              <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
+                              <br>
+                              <img src="{{ url_for('main.serve_attachment', filename=att_filename) }}" alt="{{ att.filename }}" style="max-width:220px; max-height:120px; margin-top:0.3em; border-radius:6px; border:1px solid #e5e7eb;">
+                            {% else %}
+                              <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
+                              <span style="color:#888; font-size:0.97em;">(Download)</span>
+                            {% endif %}
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  {% endif %}
+                {% endif %}
+                
                 <div>
                   <a href="#" class="toggle-history" onclick="toggleHistory(this); return false;" style="color:#2563eb; font-size:0.97em; text-decoration:underline; cursor:pointer;">Show message history</a>
                   <div class="message-history" style="display:none; margin-top:0.5em; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb; padding:0.7em 1em; color:#888; font-size:0.97em;">
-                    {{ collapse_blanklines_preserve(msg.body[wrote_idx:]) }}
+                    {{ collapse_blanklines_preserve(history_content) }}
+                    {% if msg.attachments and msg.attachments|length > 0 and not ('[cid:' in msg.body and main_content|length > 50) %}
+                      <div style="margin-top:0.5em; padding-top:0.5em; border-top:1px solid #e5e7eb;">
+                        <span style="color:#666; font-size:0.9em;">Attachments from previous messages:</span><br>
+                        {% for att in msg.attachments %}
+                          <span style="color:#666; font-size:0.9em;">{{ att.filename }}</span>{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
                   </div>
                 </div>
               {% else %}
+                <!-- No message history detected - show all NEW attachments normally -->
                 <div style="white-space: pre-line;">{{ msg.body }}</div>
+                {% if msg.attachments and msg.attachments|length > 0 %}
+                  <!-- Always show attachments for now, but with deduplication -->
+                  {% set new_attachments = [] %}
+                  {% for att in msg.attachments %}
+                    {% set att_filename = att.url.split('/')[-1] if '/' in att.url else att.url %}
+                    <!-- Normalize filename by removing random prefix (everything before first underscore) -->
+                    {% if '_' in att_filename %}
+                      {% set normalized_name = att_filename.split('_', 1)[1] %}
+                    {% else %}
+                      {% set normalized_name = att_filename %}
+                    {% endif %}
+                    
+                    {% if normalized_name not in shown_attachments %}
+                      {% set _ = new_attachments.append(att) %}
+                      {% set _ = shown_attachments.append(normalized_name) %}
+                    {% endif %}
+                  {% endfor %}
+                  
+                  {% if new_attachments|length > 0 %}
+                    <div style="margin-top:0.7rem;">
+                      <span style="font-weight:600; color:#4f8cff;">Attachments:</span>
+                      <ul style="list-style:none; padding-left:0; margin:0;">
+                        {% for att in new_attachments %}
+                          <li style="margin-bottom:0.3em;">
+                            {% set att_filename = att.url.split('/')[-1] if '/' in att.url else att.url %}
+                            <!-- Debug info -->
+                            <div style="font-size:0.8em; color:#999; margin-bottom:0.2em;">
+                              Original: {{ att_filename }} | 
+                              {% if '_' in att_filename %}Normalized: {{ att_filename.split('_', 1)[1] }}{% else %}Normalized: {{ att_filename }}{% endif %}
+                            </div>
+                            {% if att.is_image %}
+                              <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
+                              <br>
+                              <img src="{{ url_for('main.serve_attachment', filename=att_filename) }}" alt="{{ att.filename }}" style="max-width:220px; max-height:120px; margin-top:0.3em; border-radius:6px; border:1px solid #e5e7eb;">
+                            {% else %}
+                              <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
+                              <span style="color:#888; font-size:0.97em;">(Download)</span>
+                            {% endif %}
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  {% endif %}
+                {% endif %}
               {% endif %}
             {% endif %}
           </div>
-          {% if msg.attachments and msg.attachments|length > 0 %}
-            <div style="margin-top:0.7rem;">
-              <span style="font-weight:600; color:#4f8cff;">Attachments:</span>
-              <ul style="list-style:none; padding-left:0; margin:0;">
-                {% for att in msg.attachments %}
-                  <li style="margin-bottom:0.3em;">
-                    {% set att_filename = att.url.split('/')[-1] if '/' in att.url else att.url %}
-                    {% if att.is_image %}
-                      <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
-                      <br>
-                      <img src="{{ url_for('main.serve_attachment', filename=att_filename) }}" alt="{{ att.filename }}" style="max-width:220px; max-height:120px; margin-top:0.3em; border-radius:6px; border:1px solid #e5e7eb;">
-                    {% else %}
-                      <a href="{{ url_for('main.serve_attachment', filename=att_filename) }}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">{{ att.filename }}</a>
-                      <span style="color:#888; font-size:0.97em;">(Download)</span>
-                    {% endif %}
-                  </li>
-                {% endfor %}
-              </ul>
-            </div>
-          {% endif %}
         </div>
       {% endfor %}
     </div>

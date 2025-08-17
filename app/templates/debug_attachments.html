@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Attachments View</title>
+</head>
+<body>
+    <h1>Debug: Ticket {{ ticket.id }} - {{ ticket.subject }}</h1>
+    
+    {% if thread_msgs %}
+        {% for msg in thread_msgs %}
+            <div style="border: 2px solid red; margin: 10px; padding: 10px;">
+                <h3>Message ID: {{ msg.id }}</h3>
+                <p><strong>From:</strong> {{ msg.sender }}</p>
+                <p><strong>Date:</strong> {{ msg.date_received }}</p>
+                <p><strong>Subject:</strong> {{ msg.subject }}</p>
+                
+                <h4>Debug Attachment Info:</h4>
+                <p><strong>Raw attachments field:</strong> {{ msg.attachments }}</p>
+                <p><strong>Attachments type:</strong> {{ msg.attachments.__class__.__name__ }}</p>
+                <p><strong>Attachments length:</strong> {{ msg.attachments|length if msg.attachments else 'None' }}</p>
+                
+                {% if msg.attachments and msg.attachments|length > 0 %}
+                    <h4>Processed Attachments:</h4>
+                    <ul>
+                        {% for att in msg.attachments %}
+                            <li>
+                                <strong>Filename:</strong> {{ att.filename }}<br>
+                                <strong>URL:</strong> {{ att.url }}<br>
+                                <strong>Is Image:</strong> {{ att.is_image }}<br>
+                                <strong>Size:</strong> {{ att.size if att.size else 'Unknown' }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p><em>No attachments for this message</em></p>
+                {% endif %}
+                
+                <hr>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>No messages found for this ticket.</p>
+    {% endif %}
+</body>
+</html>

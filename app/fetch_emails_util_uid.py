@@ -61,11 +61,13 @@ def parse_email(msg):
     # Extract body and attachments
     body = ''
     attachments = []
+    inline_images = {}  # Store inline images by Content-ID
     
     if msg.is_multipart():
         for part in msg.walk():
             content_type = part.get_content_type()
             content_disposition = part.get('Content-Disposition', '')
+            content_id = part.get('Content-ID', '').strip('<>')
             
             if content_type == 'text/plain' and 'attachment' not in content_disposition:
                 try:
@@ -77,12 +79,46 @@ def parse_email(msg):
                     logger.warning(f"Failed to decode email body: {e}")
                     body = "Error decoding email body"
             elif 'attachment' in content_disposition:
+                # Regular file attachments
                 filename = part.get_filename()
                 if filename:
+                    # Save attachment file
+                    attachment_data = part.get_payload(decode=True)
+                    if attachment_data:
+                        safe_filename = f"{uuid.uuid4().hex}_{filename}"
+                        attachment_path = os.path.join('attachments', safe_filename)
+                        os.makedirs('attachments', exist_ok=True)
+                        
+                        with open(attachment_path, 'wb') as f:
+                            f.write(attachment_data)
+                        
+                        attachments.append({
+                            'filename': filename,
+                            'url': f'/attachments/{safe_filename}',
+                            'is_image': content_type.startswith('image/'),
+                            'size': len(attachment_data)
+                        })
+            elif content_id and content_type.startswith('image/'):
+                # Inline images with Content-ID
+                filename = part.get_filename() or f"inline_image_{content_id}.{content_type.split('/')[-1]}"
+                attachment_data = part.get_payload(decode=True)
+                if attachment_data:
+                    safe_filename = f"{uuid.uuid4().hex}_{filename}"
+                    attachment_path = os.path.join('attachments', safe_filename)
+                    os.makedirs('attachments', exist_ok=True)
+                    
+                    with open(attachment_path, 'wb') as f:
+                        f.write(attachment_data)
+                    
+                    # Store in inline_images for CID replacement
+                    inline_images[content_id] = safe_filename
+                    
+                    # Also add to attachments list
                     attachments.append({
                         'filename': filename,
-                        'content_type': content_type,
-                        'size': len(part.get_payload(decode=True) or b'')
+                        'url': f'/attachments/{safe_filename}',
+                        'is_image': True,
+                        'size': len(attachment_data)
                     })
     else:
         try:
@@ -93,6 +129,28 @@ def parse_email(msg):
         except Exception as e:
             logger.warning(f"Failed to decode simple email body: {e}")
             body = "Error decoding email body"
+    
+    # Replace CID references with actual image links
+    if body and inline_images:
+        import re
+        for content_id, filename in inline_images.items():
+            # Replace [cid:content_id] with a note about the inline image
+            cid_pattern = f"\\[cid:{re.escape(content_id)}\\]"
+            body = re.sub(cid_pattern, f"[Inline image: {filename}]", body)
+    
+    # Clean up Outlook inline image URLs that don't work outside of Outlook
+    if body:
+        import re
+        # Remove Outlook/Office365 inline image URLs
+        outlook_patterns = [
+            r'\[https://attachment\.outlook\.live\.net/[^\]]+\]',
+            r'\[https://[^/]*\.outlook\.com/[^\]]+\]',
+            r'\[https://.*?\.office\.com/[^\]]+\]',
+            r'\[https://.*outlook.*?/service\.svc/[^\]]+\]'
+        ]
+        
+        for pattern in outlook_patterns:
+            body = re.sub(pattern, '[Inline image not available - please attach images as files instead]', body)
     
     return subject, sender, date, body, message_id, thread_id, attachments, in_reply_to
 
