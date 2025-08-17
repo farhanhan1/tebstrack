@@ -150,8 +150,41 @@
     <div style="color: #888; font-style: italic; background: #f4f6fb; padding: 1.2rem; border-radius: 8px; border: 1px dashed #b6c6e6; text-align: center;">(No email thread found for this ticket)</div>
   {% endif %}
 </div>
+<script>
+// Robustly highlight Tickets link in sidenav
+document.addEventListener('DOMContentLoaded', function() {
+  var links = document.querySelectorAll('.sidenav-link');
+  links.forEach(function(link) {
+    var href = link.getAttribute('href') || '';
+    var label = '';
+    var labelSpan = link.querySelector('.sidenav-label');
+    if (labelSpan) label = labelSpan.textContent.trim().toLowerCase();
+    if (href.includes('/tickets') || label === 'tickets') {
+      link.classList.add('active');
+      link.style.background = '#e0e7ff';
+      link.style.color = '#2563eb';
+      link.style.fontWeight = '700';
+      link.style.borderRadius = '8px';
+    }
+  });
+});
 
+// Toggle message history functionality
+window.toggleHistory = function(element) {
+  var historyDiv = element.parentNode.querySelector('.message-history');
+  if (historyDiv) {
+    if (historyDiv.style.display === 'none' || historyDiv.style.display === '') {
+      historyDiv.style.display = 'block';
+      element.textContent = 'Hide message history';
+    } else {
+      historyDiv.style.display = 'none';
+      element.textContent = 'Show message history';
+    }
+  }
+}
+</script>
 {% endblock %}
+<style>
 .ticket-detail-title {
   color: #4f8cff;
   font-size: 2rem;
@@ -223,24 +256,3 @@
   text-align: center;
 }
 </style>
-<script>
-// Robustly highlight Tickets link in sidenav
-// This replaces broken .tickets-link selector logic
-
-document.addEventListener('DOMContentLoaded', function() {
-  var links = document.querySelectorAll('.sidenav-link');
-  links.forEach(function(link) {
-    var href = link.getAttribute('href') || '';
-    var label = '';
-    var labelSpan = link.querySelector('.sidenav-label');
-    if (labelSpan) label = labelSpan.textContent.trim().toLowerCase();
-    if (href.includes('/tickets') || label === 'tickets') {
-      link.classList.add('active');
-      link.style.background = '#e0e7ff';
-      link.style.color = '#2563eb';
-      link.style.fontWeight = '700';
-      link.style.borderRadius = '8px';
-    }
-  });
-});
-</script>

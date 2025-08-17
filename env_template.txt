@@ -1,0 +1,25 @@
+# UID-Based Email Fetching Configuration
+# Add these to your .env file for optimal performance
+
+# IMAP Configuration
+IMAP_HOST=imap.gmail.com
+IMAP_PORT=993
+IMAP_USER=tebstrack@gmail.com
+IMAP_PASS=your_gmail_app_password_here
+
+# Performance and Safety Settings
+MAX_EMAILS_PER_FETCH=100        # Maximum emails to process per refresh (safety limit)
+MAILBOXES_TO_PROCESS=INBOX      # Comma-separated list: INBOX,SENT (recommend INBOX only)
+
+# Optional: Legacy support (will be used if IMAP_* not set)
+GMAIL_USER=tebstrack@gmail.com
+GMAIL_APP_PASSWORD=your_gmail_app_password_here
+
+# SMTP Configuration (for sending replies)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tebstrack@gmail.com
+SMTP_PASS=your_gmail_app_password_here
+
+# Database and Flask
+SECRET_KEY=your_secret_key_here_make_it_long_and_random

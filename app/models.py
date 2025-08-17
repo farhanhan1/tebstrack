@@ -26,10 +26,22 @@ class EmailMessage(db.Model):
     attachments = db.Column(db.Text)  # JSON list of dicts: [{filename, is_image, url}]
     message_id = db.Column(db.String(255), nullable=True, unique=True)
     in_reply_to = db.Column(db.String(255), nullable=True)
+    cc_emails = db.Column(db.Text)  # JSON list of CC email addresses
+    tagged_users = db.Column(db.Text)  # JSON list of tagged user IDs
 
     def get_attachments(self):
         if self.attachments:
             return json.loads(self.attachments)
+        return []
+
+    def get_cc_emails(self):
+        if self.cc_emails:
+            return json.loads(self.cc_emails)
+        return []
+
+    def get_tagged_users(self):
+        if self.tagged_users:
+            return json.loads(self.tagged_users)
         return []
 
 class User(UserMixin, db.Model):
@@ -82,3 +94,41 @@ class Ticket(db.Model):
     thread_id = db.Column(db.String(255), nullable=True)  # For email threading
     audit_log = db.Column(db.Text, nullable=True)  # JSON or text log
     assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+
+class EmailFetchState(db.Model):
+    """Track the state of email fetching to enable incremental UID-based fetching"""
+    __tablename__ = 'email_fetch_state'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    mailbox = db.Column(db.String(100), nullable=False, unique=True)  # 'INBOX', 'SENT', etc.
+    last_uid = db.Column(db.Integer, nullable=False, default=0)  # Last processed UID
+    last_fetch_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    total_emails_processed = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @classmethod
+    def get_last_uid(cls, mailbox):
+        """Get the last processed UID for a mailbox"""
+        state = cls.query.filter_by(mailbox=mailbox).first()
+        return state.last_uid if state else 0
+    
+    @classmethod
+    def update_last_uid(cls, mailbox, uid, emails_processed=0):
+        """Update the last processed UID for a mailbox"""
+        state = cls.query.filter_by(mailbox=mailbox).first()
+        if state:
+            state.last_uid = max(state.last_uid, uid)  # Ensure we only move forward
+            state.last_fetch_time = datetime.utcnow()
+            state.total_emails_processed += emails_processed
+            state.updated_at = datetime.utcnow()
+        else:
+            state = cls(
+                mailbox=mailbox,
+                last_uid=uid,
+                total_emails_processed=emails_processed
+            )
+            db.session.add(state)
+        db.session.commit()
+        return state
