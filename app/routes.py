@@ -1,9 +1,3 @@
-from flask import Blueprint
-from flask_login import login_required
-
-
-import logging
-
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app, jsonify, send_from_directory, make_response
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField
@@ -18,6 +12,7 @@ import datetime
 import csv
 import io
 from .fetch_emails_util import fetch_and_store_emails
+import logging
 from app.extensions import csrf
 import bleach
 main = Blueprint('main', __name__)
@@ -387,7 +382,6 @@ def bulk_ticket_action():
         return jsonify({'success': False, 'error': 'You do not have permission to perform bulk actions.'}), 403
 
     affected = 0
-    from flask_login import current_user
     username = current_user.username if hasattr(current_user, 'username') else 'Unknown'
     debug_info = {}
     from app.models import EmailMessage
