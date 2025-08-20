@@ -135,11 +135,16 @@
       <form id="create-ticket-form">
         <div style="margin-bottom:1.1rem;">
           <label style="font-weight:600; color:#4f8cff; display:block; margin-bottom:0.4rem;">Subject</label>
-          <input type="text" name="subject" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
+          <input type="text" name="subject" required style="width:87%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
         </div>
         <div style="margin-bottom:1.1rem;">
           <label style="font-weight:600; color:#4f8cff; display:block; margin-bottom:0.4rem;">Category</label>
-          <input type="text" name="category" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
+          <select name="category" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
+            <option value="">Select a category</option>
+            {% for cat in all_categories %}
+              <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div style="margin-bottom:1.1rem;">
           <label style="font-weight:600; color:#4f8cff; display:block; margin-bottom:0.4rem;">Urgency</label>
@@ -150,10 +155,10 @@
             <option value="Urgent">Urgent</option>
           </select>
         </div>
-        <div style="margin-bottom:1.1rem;">
+        <!-- <div style="margin-bottom:1.1rem;">
           <label style="font-weight:600; color:#4f8cff; display:block; margin-bottom:0.4rem;">Description</label>
           <textarea name="description" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem; min-height:80px;"></textarea>
-        </div>
+        </div> -->
         <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Submit</button>
       </form>
     </div>
@@ -205,7 +210,7 @@
   <!-- Export Confirmation Modal -->
   <div id="export-confirmation-modal" class="modal" style="display:none; position:fixed; z-index:1001; left:0; top:0; width:100vw; height:100vh; overflow:auto; background:rgba(44,62,80,0.7); justify-content:center; align-items:center;">
     <div class="modal-content" style="background:#fff; margin:5% auto; border-radius:16px; padding:2.2rem 2.5rem 2rem 2.5rem; max-width:420px; box-shadow:0 8px 32px rgba(79,140,255,0.18); position:relative;">
-      <h2 style="color:#7c3aed; font-size:1.45rem; font-weight:700; margin-bottom:1.2rem;">Export tickets</h2>
+      <h2 style="color:#7c3aed; font-size:1.45rem; font-weight:700; margin-bottom:1.2rem;">Export tickets?</h2>
       <p style="color:#6b7280; font-size:1rem; margin-bottom:1.5rem; line-height:1.5;">Export could take some time depending on the number of tickets</p>
       <div style="display:flex; gap:1rem; justify-content:flex-end;">
         <button type="button" id="export-cancel" style="background:#6b7280; color:#fff; border:none; border-radius:6px; padding:0.5rem 1.2rem; font-weight:700; font-size:1rem; cursor:pointer; transition:background 0.2s;">No</button>
