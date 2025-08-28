@@ -1,0 +1,271 @@
+<!-- AI Recommendation Section - Add this to viewticket.html after the ticket details table -->
+
+<div id="ai-recommendations" style="max-width: 700px; margin: 20px auto; padding: 1.5rem 2rem; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(79,140,255,0.10), 0 1.5px 8px rgba(0,0,0,0.04);">
+  <h3 style="color: #4f8cff; font-size: 1.3rem; font-weight: 600; margin-bottom: 1rem;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 8px;">
+      <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    AI Recommendations
+  </h3>
+  
+  <!-- AI Categorization Results -->
+  <div id="ai-categorization" style="margin-bottom: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 8px; border-left: 4px solid #4f8cff;">
+    <h4 style="margin: 0 0 0.5rem 0; color: #374151; font-size: 1rem;">Categorization Analysis</h4>
+    <div id="categorization-content">
+      <button onclick="getAICategorization()" style="background: #4f8cff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+        Analyze with AI
+      </button>
+    </div>
+  </div>
+  
+  <!-- Email Template Recommendation -->
+  <div id="ai-template" style="margin-bottom: 1.5rem; padding: 1rem; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #059669;">
+    <h4 style="margin: 0 0 0.5rem 0; color: #374151; font-size: 1rem;">Email Template Recommendation</h4>
+    <div id="template-content">
+      <button onclick="getTemplateRecommendation()" style="background: #059669; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+        Get Template Suggestion
+      </button>
+    </div>
+  </div>
+  
+  <!-- Template Selection -->
+  <div id="template-selection" style="display: none; margin-bottom: 1rem; padding: 1rem; background: #fefce8; border-radius: 8px; border-left: 4px solid #ca8a04;">
+    <h4 style="margin: 0 0 0.5rem 0; color: #374151; font-size: 1rem;">Select Email Template</h4>
+    <select id="template-selector" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 0.5rem;">
+      <option value="">Choose a template...</option>
+      <option value="VPN Account Creation">VPN Account Creation</option>
+      <option value="Password Reset">Password Reset</option>
+      <option value="Software Installation">Software Installation</option>
+      <option value="Hardware Request">Hardware Request</option>
+      <option value="Server Access">Server Access</option>
+      <option value="General Response">General Response</option>
+    </select>
+    <button onclick="useSelectedTemplate()" style="background: #ca8a04; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+      Use Selected Template
+    </button>
+  </div>
+</div>
+
+<script>
+// AI Categorization Function
+function getAICategorization() {
+  const subject = document.querySelector('input[name="subject"]').value;
+  const body = "{{ ticket.body|e|replace('\n', '\\n')|replace('\r', '')|replace('\"', '\\\"') }}";
+  const sender = "{{ ticket.sender|e }}";
+  
+  const contentDiv = document.getElementById('categorization-content');
+  contentDiv.innerHTML = '<div style="color: #6b7280; font-style: italic;">Analyzing...</div>';
+  
+  fetch('/api/ai/categorize', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      subject: subject,
+      body: body,
+      sender: sender
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const result = data.categorization;
+      contentDiv.innerHTML = `
+        <div style="margin-bottom: 0.5rem;">
+          <strong>Suggested Category:</strong> 
+          <span style="background: #e0e7ff; color: #4f8cff; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600;">${result.category}</span>
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+          <strong>Suggested Urgency:</strong> 
+          <span style="background: ${getUrgencyColor(result.urgency)}; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600;">${result.urgency}</span>
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+          <strong>Confidence:</strong> ${Math.round(result.confidence * 100)}%
+        </div>
+        <div style="margin-bottom: 1rem; color: #6b7280; font-size: 0.9rem;">
+          ${result.reasoning}
+        </div>
+        <button onclick="applyCategorization('${result.category}', '${result.urgency}')" 
+                style="background: #059669; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-right: 0.5rem;">
+          Apply Suggestions
+        </button>
+        <button onclick="getAICategorization()" 
+                style="background: #6b7280; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
+          Re-analyze
+        </button>
+      `;
+    } else {
+      contentDiv.innerHTML = '<div style="color: #dc2626;">Error: ' + (data.error || 'Analysis failed') + '</div>';
+    }
+  })
+  .catch(error => {
+    console.error('AI categorization error:', error);
+    contentDiv.innerHTML = '<div style="color: #dc2626;">Error connecting to AI service.</div>';
+  });
+}
+
+// Template Recommendation Function
+function getTemplateRecommendation() {
+  const subject = document.querySelector('input[name="subject"]').value;
+  const body = "{{ ticket.body|e|replace('\n', '\\n')|replace('\r', '')|replace('\"', '\\\"') }}";
+  const category = document.querySelector('select[name="category"]').value;
+  
+  const contentDiv = document.getElementById('template-content');
+  contentDiv.innerHTML = '<div style="color: #6b7280; font-style: italic;">Getting recommendation...</div>';
+  
+  fetch('/api/ai/recommend-template', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      subject: subject,
+      body: body,
+      category: category
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const templates = data.templates;
+      let html = '<div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin-top: 1rem;">';
+      
+      // Acknowledgment template
+      if (templates.acknowledgment) {
+        html += `
+          <div style="margin-bottom: 1rem; padding: 0.8rem; background: white; border-radius: 6px; border-left: 3px solid #059669;">
+            <h5 style="margin: 0 0 0.5rem 0; color: #059669;">Acknowledgment Template</h5>
+            <div style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Subject:</strong> ${templates.acknowledgment.subject}</div>
+            <div style="font-size: 0.9rem; white-space: pre-wrap; background: #f9fafb; padding: 0.5rem; border-radius: 4px;">${templates.acknowledgment.body}</div>
+            <button onclick="copyTemplate('${escapeJs(templates.acknowledgment.subject)}', '${escapeJs(templates.acknowledgment.body)}')" 
+                    style="background: #059669; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-top: 0.5rem;">
+              Copy Template
+            </button>
+          </div>
+        `;
+      }
+      
+      // Resolution template
+      if (templates.resolution) {
+        html += `
+          <div style="margin-bottom: 1rem; padding: 0.8rem; background: white; border-radius: 6px; border-left: 3px solid #2563eb;">
+            <h5 style="margin: 0 0 0.5rem 0; color: #2563eb;">Resolution Template</h5>
+            <div style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Subject:</strong> ${templates.resolution.subject}</div>
+            <div style="font-size: 0.9rem; white-space: pre-wrap; background: #f9fafb; padding: 0.5rem; border-radius: 4px;">${templates.resolution.body}</div>
+            <button onclick="copyTemplate('${escapeJs(templates.resolution.subject)}', '${escapeJs(templates.resolution.body)}')" 
+                    style="background: #2563eb; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-top: 0.5rem;">
+              Copy Template
+            </button>
+          </div>
+        `;
+      }
+      
+      html += '</div>';
+      contentDiv.innerHTML = html;
+    } else {
+      contentDiv.innerHTML = '<div style="color: #dc2626;">Error: ' + (data.error || 'Template generation failed') + '</div>';
+    }
+  })
+  .catch(error => {
+    console.error('Template recommendation error:', error);
+    contentDiv.innerHTML = '<div style="color: #dc2626;">Error connecting to AI service.</div>';
+  });
+}
+
+// Helper Functions
+function getUrgencyColor(urgency) {
+  const colors = {
+    'Low': '#d1fae5; color: #059669',
+    'Medium': '#fef9c3; color: #ca8a04',
+    'High': '#fee2e2; color: #dc2626', 
+    'Urgent': '#f87171; color: #fff'
+  };
+  return colors[urgency] || '#e5e7eb; color: #6b7280';
+}
+
+function applyCategorization(category, urgency) {
+  // Find the category in the select dropdown
+  const categorySelect = document.querySelector('select[name="category"]');
+  const urgencySelect = document.querySelector('select[name="urgency"]');
+  
+  // Set category
+  for (let option of categorySelect.options) {
+    if (option.text === category || option.value === category) {
+      categorySelect.value = option.value;
+      break;
+    }
+  }
+  
+  // Set urgency
+  urgencySelect.value = urgency;
+  
+  // Visual feedback
+  categorySelect.style.background = '#dcfce7';
+  urgencySelect.style.background = '#dcfce7';
+  
+  setTimeout(() => {
+    categorySelect.style.background = '';
+    urgencySelect.style.background = '';
+  }, 2000);
+  
+  // Show success message
+  const contentDiv = document.getElementById('categorization-content');
+  const successMsg = document.createElement('div');
+  successMsg.style.cssText = 'color: #059669; font-weight: 600; margin-top: 0.5rem; padding: 0.5rem; background: #dcfce7; border-radius: 4px;';
+  successMsg.textContent = 'AI suggestions applied! Don\'t forget to save the ticket.';
+  contentDiv.appendChild(successMsg);
+  
+  setTimeout(() => {
+    if (successMsg.parentNode) {
+      successMsg.remove();
+    }
+  }, 3000);
+}
+
+function showTemplateSelection() {
+  document.getElementById('template-selection').style.display = 'block';
+}
+
+function copyTemplate(subject, body) {
+  const text = `Subject: ${subject}\n\n${body}`;
+  navigator.clipboard.writeText(text).then(() => {
+    // Show success message
+    const msg = document.createElement('div');
+    msg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #059669; color: white; padding: 0.5rem 1rem; border-radius: 6px; z-index: 9999;';
+    msg.textContent = 'Template copied to clipboard!';
+    document.body.appendChild(msg);
+    
+    setTimeout(() => {
+      if (msg.parentNode) {
+        msg.remove();
+      }
+    }, 2000);
+  }).catch(() => {
+    alert('Failed to copy to clipboard. Please copy manually.');
+  });
+}
+
+function useTemplate(templateName) {
+  console.log('Using template:', templateName);
+  // Try to find reply textarea and populate it
+  const replyBox = document.querySelector('textarea[name="reply_body"]');
+  if (replyBox) {
+    // This would need the actual template content
+    alert('Template functionality: Would populate reply box with ' + templateName);
+  } else {
+    alert('Template functionality will be implemented: ' + templateName);
+  }
+}
+
+function useSelectedTemplate() {
+  const templateName = document.getElementById('template-selector').value;
+  if (templateName) {
+    useTemplate(templateName);
+  }
+}
+
+function escapeJs(str) {
+  return str.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
+}
+</script>

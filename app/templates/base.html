@@ -534,5 +534,13 @@
   <div class="main-content{% if hide_sidenav %} no-sidenav{% endif %}">
     {% block content %}{% endblock %}
   </div>
+  
+  <!-- AI Chatbot Component -->
+  {% if current_user.is_authenticated %}
+    {% include 'chatbot_component.html' %}
+  {% endif %}
+  
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </body>
 </html>

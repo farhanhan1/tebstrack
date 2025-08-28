@@ -1,0 +1,622 @@
+<!-- Chatbot Component - Add this to base.html before closing </body> tag -->
+
+<!-- Chatbot Bubble -->
+<div id="chatbot-bubble" class="chatbot-bubble" onclick="toggleChatbot()">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+
+<!-- Chatbot Window -->
+<div id="chatbot-window" class="chatbot-window">
+  <div class="chatbot-header">
+    <h3>TeBSTrack Assistant</h3>
+    <div class="chatbot-header-buttons">
+      <button onclick="clearChatHistory()" class="chatbot-clear-btn" title="Clear chat history">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button onclick="toggleChatbot()" class="chatbot-close">&times;</button>
+    </div>
+  </div>
+  
+  <div id="chatbot-messages" class="chatbot-messages">
+    <div class="message bot-message">
+      <div class="message-content" id="welcome-message">
+        Hi! I'm your TeBSTrack assistant. I can help you with:
+        <br>• Understanding ticket categories
+        <br>• Troubleshooting common issues  
+        <br>• Navigation and features
+        <br><br>How can I help you today?
+      </div>
+    </div>
+  </div>
+  
+  <div class="chatbot-input-container">
+    <div id="quick-actions" class="quick-actions" style="display: none;">
+      <div class="quick-action-btn" onclick="sendQuickMessage('Tell me about this ticket')">📋 About this ticket</div>
+      <div class="quick-action-btn" onclick="sendQuickMessage('What should I do next?')">🔄 Next steps</div>
+      <div class="quick-action-btn" onclick="sendQuickMessage('Explain the category and urgency')">📊 Category info</div>
+    </div>
+    <div class="chatbot-input-row">
+      <input type="text" id="chatbot-input" placeholder="Type your question..." onkeypress="handleChatbotEnter(event)">
+      <button onclick="sendChatbotMessage()" class="chatbot-send-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="m22 2-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+.chatbot-bubble {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  background: #4f8cff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(79, 140, 255, 0.3);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.chatbot-bubble:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 25px rgba(79, 140, 255, 0.4);
+}
+
+.chatbot-window {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 350px;
+  height: 500px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  display: none;
+  flex-direction: column;
+  z-index: 1001;
+  overflow: hidden;
+}
+
+.chatbot-header {
+  background: #4f8cff;
+  color: white;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chatbot-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.chatbot-header-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chatbot-clear-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.chatbot-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.chatbot-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.chatbot-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chatbot-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message {
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+.bot-message {
+  align-self: flex-start;
+}
+
+.user-message {
+  align-self: flex-end;
+}
+
+.message-content {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.bot-message .message-content {
+  background: #f1f3f5;
+  color: #2d3a4b;
+}
+
+.user-message .message-content {
+  background: #4f8cff;
+  color: white;
+}
+
+.chatbot-input-container {
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.quick-action-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.quick-action-btn:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.chatbot-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#chatbot-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
+
+#chatbot-input:focus {
+  border-color: #4f8cff;
+}
+
+.chatbot-send-btn {
+  background: #4f8cff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.chatbot-send-btn:hover {
+  background: #2563eb;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .chatbot-window {
+    width: calc(100vw - 40px);
+    height: 70vh;
+    bottom: 90px;
+    right: 20px;
+    left: 20px;
+  }
+  
+  .chatbot-bubble {
+    bottom: 15px;
+    right: 15px;
+    width: 55px;
+    height: 55px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chatbot-window {
+    height: 75vh;
+    bottom: 80px;
+  }
+  
+  .chatbot-messages {
+    padding: 15px;
+  }
+  
+  .chatbot-input-container {
+    padding: 12px 15px;
+  }
+}
+
+/* Loading animation */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  background: #f1f3f5;
+  border-radius: 12px;
+  max-width: fit-content;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  background: #6b7280;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+</style>
+
+<script>
+// TeBSTrack Chatbot - Wrapped in namespace to prevent conflicts
+(function() {
+  'use strict';
+  
+  let chatbotOpen = false;
+  const CHAT_HISTORY_KEY = 'tebstrack_chat_history';
+
+  // Load chat history on page load
+  function loadChatHistory() {
+    try {
+      const savedHistory = sessionStorage.getItem(CHAT_HISTORY_KEY);
+      if (savedHistory) {
+        const messages = JSON.parse(savedHistory);
+        const messagesContainer = document.getElementById('chatbot-messages');
+        
+        // Clear current messages except welcome message
+        const welcomeMessage = messagesContainer.querySelector('.bot-message');
+        messagesContainer.innerHTML = '';
+        if (welcomeMessage) {
+          messagesContainer.appendChild(welcomeMessage);
+        }
+        
+        // Add saved messages
+        messages.forEach(msg => {
+          addMessageToChat(msg.content, msg.sender, false); // false = don't save to history
+        });
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+    }
+  }
+
+  // Save message to session storage
+  function saveMessageToHistory(message, sender) {
+    try {
+      const savedHistory = sessionStorage.getItem(CHAT_HISTORY_KEY);
+      let messages = savedHistory ? JSON.parse(savedHistory) : [];
+      
+      messages.push({
+        content: message,
+        sender: sender,
+        timestamp: Date.now()
+      });
+      
+      // Keep only last 50 messages to prevent storage bloat
+      if (messages.length > 50) {
+        messages = messages.slice(-50);
+      }
+      
+      sessionStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
+    } catch (error) {
+      console.error('Error saving chat history:', error);
+    }
+  }
+
+  // Clear chat history
+  function clearChatHistory() {
+    try {
+      sessionStorage.removeItem(CHAT_HISTORY_KEY);
+      const messagesContainer = document.getElementById('chatbot-messages');
+      
+      // Reset to just the welcome message
+      messagesContainer.innerHTML = `
+        <div class="message bot-message">
+          <div class="message-content" id="welcome-message">
+            Hi! I'm your TeBSTrack assistant. I can help you with:
+            <br>• Understanding ticket categories
+            <br>• Troubleshooting common issues  
+            <br>• Navigation and features
+            <br><br>How can I help you today?
+          </div>
+        </div>
+      `;
+      
+      // Update welcome message for current context
+      updateWelcomeMessage();
+    } catch (error) {
+      console.error('Error clearing chat history:', error);
+    }
+  }
+
+  // Make functions global for onclick handlers
+  window.toggleChatbot = function() {
+    const chatbotWindow = document.getElementById('chatbot-window');
+    const chatbotBubble = document.getElementById('chatbot-bubble');
+    
+    chatbotOpen = !chatbotOpen;
+    
+    if (chatbotOpen) {
+      chatbotWindow.style.display = 'flex';
+      chatbotBubble.style.transform = 'scale(0.9)';
+      document.getElementById('chatbot-input').focus();
+      
+      // Update welcome message based on context
+      updateWelcomeMessage();
+      
+      // Load chat history when opening
+      loadChatHistory();
+    } else {
+      chatbotWindow.style.display = 'none';
+      chatbotBubble.style.transform = 'scale(1)';
+    }
+  };
+
+  // Update welcome message based on current page context
+  function updateWelcomeMessage() {
+    const welcomeElement = document.getElementById('welcome-message');
+    const quickActionsElement = document.getElementById('quick-actions');
+    const ticketContext = getCurrentTicketContext();
+    
+    if (ticketContext && ticketContext.id) {
+      welcomeElement.innerHTML = `
+        Hi! I'm your TeBSTrack assistant. I can see you're viewing <strong>Ticket #${ticketContext.id}</strong>.
+        <br><br>I can help you with:
+        <br>• Analyzing this specific ticket
+        <br>• Explaining the ticket's status and category
+        <br>• Suggesting next steps
+        <br>• General TeBSTrack questions
+        <br><br>Try the quick actions below or ask me anything!
+      `;
+      
+      // Show quick actions for ticket-specific context
+      if (quickActionsElement) {
+        quickActionsElement.style.display = 'flex';
+      }
+    } else {
+      welcomeElement.innerHTML = `
+        Hi! I'm your TeBSTrack assistant. I can help you with:
+        <br>• Understanding ticket categories
+        <br>• Troubleshooting common issues  
+        <br>• Navigation and features
+        <br>• Creating and managing tickets
+        <br><br>How can I help you today?
+      `;
+      
+      // Hide quick actions for general context
+      if (quickActionsElement) {
+        quickActionsElement.style.display = 'none';
+      }
+    }
+  }
+
+  // Send a pre-defined quick message
+  window.sendQuickMessage = function(message) {
+    const input = document.getElementById('chatbot-input');
+    input.value = message;
+    sendChatbotMessage();
+  };
+
+  // Add clear history button functionality
+  window.clearChatHistory = clearChatHistory;
+
+  window.handleChatbotEnter = function(event) {
+    if (event.key === 'Enter') {
+      sendChatbotMessage();
+    }
+  };
+
+  window.sendChatbotMessage = function() {
+    const input = document.getElementById('chatbot-input');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    // Add user message to chat
+    addMessageToChat(message, 'user');
+    input.value = '';
+    
+    // Show typing indicator
+    showTypingIndicator();
+    
+    // Get current ticket context if on ticket page
+    const ticketContext = getCurrentTicketContext();
+    
+    console.log('Sending chatbot message:', {
+      message: message,
+      ticketContext: ticketContext
+    });
+    
+    // Send to backend
+    fetch('/api/ai/chatbot', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: message,
+        ticket_id: ticketContext ? ticketContext.id : null
+      })
+    })
+    .then(response => {
+      console.log('Chatbot response status:', response.status);
+      return response.json();
+    })
+    .then(data => {
+      console.log('Chatbot response data:', data);
+      hideTypingIndicator();
+      if (data.success) {
+        addMessageToChat(data.response, 'bot');
+      } else {
+        // Handle error response - backend sends error message in 'response' field when success=false
+        addMessageToChat(data.response || 'Sorry, I encountered an unknown error.', 'bot');
+      }
+    })
+    .catch(error => {
+      console.error('Chatbot fetch error:', error);
+      hideTypingIndicator();
+      addMessageToChat('Sorry, I encountered an error. Please try again.', 'bot');
+    });
+  };
+
+  function addMessageToChat(message, sender, saveToHistory = true) {
+    const messagesContainer = document.getElementById('chatbot-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}-message`;
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    contentDiv.innerHTML = message.replace(/\n/g, '<br>');
+    
+    messageDiv.appendChild(contentDiv);
+    messagesContainer.appendChild(messageDiv);
+    
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Save to history if requested (default true)
+    if (saveToHistory) {
+      saveMessageToHistory(message, sender);
+    }
+  }
+
+  function showTypingIndicator() {
+    const messagesContainer = document.getElementById('chatbot-messages');
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message bot-message';
+    typingDiv.id = 'typing-indicator';
+    
+    const indicator = document.createElement('div');
+    indicator.className = 'typing-indicator';
+    indicator.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+    
+    typingDiv.appendChild(indicator);
+    messagesContainer.appendChild(typingDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  function hideTypingIndicator() {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+      indicator.remove();
+    }
+  }
+
+  function getCurrentTicketContext() {
+    // Extract ticket context if on ticket view page - support both URL patterns
+    const ticketIdMatch = window.location.pathname.match(/\/(?:view_ticket|viewticket)\/(\d+)/);
+    
+    // Debug logging
+    console.log('Current URL:', window.location.pathname);
+    console.log('Ticket ID match:', ticketIdMatch);
+    
+    if (ticketIdMatch) {
+      // Try to extract ticket information from the page
+      const ticketId = ticketIdMatch[1];
+      
+      // Look for ticket information in the page
+      const subjectElement = document.querySelector('input[name="subject"]');
+      const categoryElement = document.querySelector('select[name="category"]');
+      const statusElement = document.querySelector('select[name="status"]');
+      
+      console.log('Extracted ticket context:', {
+        id: ticketId,
+        subject: subjectElement ? subjectElement.value : null,
+        category: categoryElement ? categoryElement.value : null,
+        status: statusElement ? statusElement.value : null
+      });
+      
+      return {
+        id: ticketId,
+        subject: subjectElement ? subjectElement.value : null,
+        category: categoryElement ? categoryElement.value : null,
+        status: statusElement ? statusElement.value : null
+      };
+    }
+    
+    console.log('No ticket context found');
+    return null;
+  }
+
+  // Close chatbot when clicking outside
+  document.addEventListener('click', function(event) {
+    const chatbotWindow = document.getElementById('chatbot-window');
+    const chatbotBubble = document.getElementById('chatbot-bubble');
+    
+    if (chatbotOpen && !chatbotWindow.contains(event.target) && !chatbotBubble.contains(event.target)) {
+      toggleChatbot();
+    }
+  });
+
+})();
+</script>

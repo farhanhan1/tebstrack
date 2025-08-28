@@ -15,6 +15,8 @@ from .fetch_emails_util import fetch_and_store_emails
 import logging
 from app.extensions import csrf
 import bleach
+from app.ai_service import get_ai_service
+import os
 main = Blueprint('main', __name__)
 
 @main.route('/reply_ticket/<int:ticket_id>', methods=['POST'])
@@ -1169,3 +1171,232 @@ def edit_ticket(ticket_id):
     if request.method == 'GET':
         form = EditTicketForm(obj=ticket)
     return render_template('edit_ticket.html', ticket=ticket, infra_users=infra_users, form=form)
+
+
+# ============================================================================
+# AI-POWERED ROUTES - OpenAI Integration for Enhanced Ticket Management
+# ============================================================================
+
+@main.route('/api/ai/categorize', methods=['POST'])
+@login_required
+@csrf.exempt
+def ai_categorize_ticket():
+    """AI-powered ticket categorization endpoint."""
+    try:
+        # Check if OpenAI API key is configured first
+        if not os.getenv('OPENAI_API_KEY'):
+            return jsonify({
+                'success': False,
+                'error': 'OpenAI API key not configured. Please set OPENAI_API_KEY in your environment variables.'
+            }), 200  # Return 200 to avoid HTML error page
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 200
+        
+        subject = data.get('subject', '')
+        body = data.get('body', '')
+        sender = data.get('sender', '')
+        
+        if not subject and not body:
+            return jsonify({
+                'success': False,
+                'error': 'Subject or body is required'
+            }), 200
+        
+        ai_service = get_ai_service()
+        result = ai_service.categorize_ticket(subject, body, sender)
+        
+        return jsonify({
+            'success': True,
+            'categorization': result
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in AI categorization: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Categorization failed: {str(e)}'
+        }), 200
+
+
+@main.route('/api/ai/recommend-template', methods=['POST'])
+@login_required
+@csrf.exempt
+def ai_recommend_template():
+    """AI-powered email template recommendation endpoint."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        subject = data.get('subject', '')
+        body = data.get('body', '')
+        category = data.get('category', '')
+        
+        if not subject and not body:
+            return jsonify({'error': 'Subject or body is required'}), 400
+        
+        # Check if OpenAI API key is configured
+        if not os.getenv('OPENAI_API_KEY'):
+            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        
+        ai_service = get_ai_service()
+        result = ai_service.recommend_email_template(subject, body, category)
+        
+        return jsonify({
+            'success': True,
+            'templates': result
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in template recommendation: {e}")
+        return jsonify({'error': f'Template recommendation failed: {str(e)}'}), 500
+
+
+@main.route('/api/ai/chatbot', methods=['POST'])
+@login_required
+@csrf.exempt
+def ai_chatbot():
+    """AI-powered chatbot endpoint for user assistance."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'response': 'No data provided'
+            }), 200
+        
+        message = data.get('message', '')
+        ticket_id = data.get('ticket_id')
+        
+        if not message:
+            return jsonify({
+                'success': False,
+                'response': 'Message is required'
+            }), 200
+        
+        # Get ticket context if provided
+        ticket_context = None
+        if ticket_id:
+            ticket = Ticket.query.get(ticket_id)
+            if ticket:
+                # Get assigned user if any
+                assigned_user = None
+                if ticket.assigned_to:
+                    assigned_user = User.query.get(ticket.assigned_to)
+                
+                ticket_context = {
+                    'id': ticket.id,
+                    'subject': ticket.subject,
+                    'body': ticket.description,  # Note: the field is 'description', not 'body'
+                    'sender': ticket.sender,
+                    'category': ticket.category,  # category is already a string
+                    'status': ticket.status,
+                    'urgency': ticket.urgency,
+                    'created_at': ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else 'Unknown',
+                    'assigned_to': assigned_user.username if assigned_user else 'Unassigned',
+                    'recent_activity': []  # Log system doesn't support ticket-specific logs yet
+                }
+        
+        ai_service = get_ai_service()
+        response = ai_service.chatbot_response(message, ticket_context)
+        
+        return jsonify({
+            'success': True,
+            'response': response
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in chatbot: {e}")
+        return jsonify({
+            'success': False,
+            'response': f'Chatbot request failed: {str(e)}'
+        }), 200
+
+
+@main.route('/api/ai/analyze-sentiment', methods=['POST'])
+@login_required
+@csrf.exempt
+def ai_analyze_sentiment():
+    """AI-powered sentiment analysis endpoint."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'Text is required'}), 400
+        
+        # Check if OpenAI API key is configured
+        if not os.getenv('OPENAI_API_KEY'):
+            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        
+        ai_service = get_ai_service()
+        result = ai_service.analyze_ticket_sentiment(text)
+        
+        return jsonify({
+            'success': True,
+            'sentiment': result
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in sentiment analysis: {e}")
+        return jsonify({'error': f'Sentiment analysis failed: {str(e)}'}), 500
+
+
+@main.route('/api/ai/auto-categorize/<int:ticket_id>', methods=['POST'])
+@login_required
+@csrf.exempt
+def ai_auto_categorize_ticket(ticket_id):
+    """Automatically categorize an existing ticket using AI."""
+    try:
+        ticket = Ticket.query.get_or_404(ticket_id)
+        
+        # Check if OpenAI API key is configured
+        if not os.getenv('OPENAI_API_KEY'):
+            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        
+        ai_service = get_ai_service()
+        result = ai_service.categorize_ticket(ticket.subject, ticket.body, ticket.sender)
+        
+        # Find the category and update the ticket if confidence is high enough
+        if result['confidence'] > 0.7:  # Only auto-update if confidence > 70%
+            category = Category.query.filter_by(name=result['category_name']).first()
+            if category:
+                old_category = ticket.category.name if ticket.category else 'None'
+                ticket.category_id = category.id
+                ticket.urgency = result['urgency']
+                db.session.commit()
+                
+                # Log the change
+                log = TicketLog(
+                    user=current_user.username,
+                    action='ai_categorize',
+                    details=f"AI categorized ticket '{ticket.subject}' (ID: {ticket.id}) from '{old_category}' to '{category.name}' with {result['confidence']:.1%} confidence. Urgency set to {result['urgency']}."
+                )
+                db.session.add(log)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'updated': True,
+                    'categorization': result,
+                    'message': f'Ticket categorized as "{category.name}" with {result["confidence"]:.1%} confidence'
+                })
+        
+        return jsonify({
+            'success': True,
+            'updated': False,
+            'categorization': result,
+            'message': f'AI suggests "{result["category_name"]}" category with {result["confidence"]:.1%} confidence (not auto-applied due to low confidence)'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in auto-categorization: {e}")
+        return jsonify({'error': f'Auto-categorization failed: {str(e)}'}), 500
