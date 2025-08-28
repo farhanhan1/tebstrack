@@ -342,7 +342,7 @@ def create_ticket():
             category=category,
             urgency=urgency,
             description=description,
-            sender=bleach.clean(sender),
+            sender=sender,  # Don't bleach the sender field to preserve email format
             status='Open',
             created_at=datetime.datetime.now()
         )
@@ -1121,7 +1121,7 @@ def edit_ticket(ticket_id):
             'description': bleach.clean(form.description.data),
             'assigned_to': form.assigned_to.data if form.assigned_to.data else None,
             'resolution': bleach.clean(form.resolution.data) if hasattr(form, 'resolution') and form.resolution.data else None,
-            'sender': bleach.clean(form.sender.data) if hasattr(form, 'sender') and form.sender.data else ticket.sender,
+            'sender': form.sender.data if hasattr(form, 'sender') and form.sender.data else ticket.sender,  # Don't bleach sender field
             'created_at': bleach.clean(form.created_at.data) if hasattr(form, 'created_at') and form.created_at.data else old['created_at'],
             'updated_at': bleach.clean(form.updated_at.data) if hasattr(form, 'updated_at') and form.updated_at.data else old['updated_at']
         }
