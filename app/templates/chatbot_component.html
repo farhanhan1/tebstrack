@@ -460,6 +460,13 @@
 
   // Clear chat history
   function clearChatHistory() {
+    // Show confirmation dialog
+    const confirmed = confirm("Are you sure you want to clear the chat history?");
+    
+    if (!confirmed) {
+      return; // User cancelled, do nothing
+    }
+    
     try {
       sessionStorage.removeItem(CHAT_HISTORY_KEY);
       const messagesContainer = document.getElementById('chatbot-messages');
@@ -479,6 +486,10 @@
       
       // Update welcome message for current context
       updateWelcomeMessage();
+      
+      // Show confirmation that history was cleared
+      addMessageToChat('Chat history has been cleared! 🗑️', 'bot');
+      
     } catch (error) {
       console.error('Error clearing chat history:', error);
     }
