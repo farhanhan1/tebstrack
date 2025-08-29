@@ -87,6 +87,47 @@
   flex-direction: column;
   z-index: 1001;
   overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.chatbot-window.opening {
+  display: flex !important;
+  animation: chatbotSlideIn 0.3s ease forwards;
+}
+
+.chatbot-window.closing {
+  display: flex !important;
+  animation: chatbotSlideOut 0.3s ease forwards;
+}
+
+.chatbot-window.open {
+  display: flex !important;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@keyframes chatbotSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes chatbotSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
 }
 
 .chatbot-header {
@@ -454,18 +495,38 @@
     localStorage.setItem('chatbotOpen', chatbotOpen);
     
     if (chatbotOpen) {
+      // Opening animation - set display immediately
       chatbotWindow.style.display = 'flex';
+      chatbotWindow.classList.remove('closing');
+      chatbotWindow.classList.add('opening');
       chatbotBubble.style.transform = 'scale(0.9)';
-      document.getElementById('chatbot-input').focus();
       
-      // Update welcome message based on context
-      updateWelcomeMessage();
+      // After animation starts, focus input and load content
+      setTimeout(() => {
+        document.getElementById('chatbot-input').focus();
+        
+        // Update welcome message based on context
+        updateWelcomeMessage();
+        
+        // Load chat history when opening
+        loadChatHistory();
+        
+        // Set final open state
+        chatbotWindow.classList.remove('opening');
+        chatbotWindow.classList.add('open');
+      }, 50);
       
-      // Load chat history when opening
-      loadChatHistory();
     } else {
-      chatbotWindow.style.display = 'none';
+      // Closing animation
+      chatbotWindow.classList.remove('open');
+      chatbotWindow.classList.add('closing');
       chatbotBubble.style.transform = 'scale(1)';
+      
+      // Hide after animation completes
+      setTimeout(() => {
+        chatbotWindow.style.display = 'none';
+        chatbotWindow.classList.remove('closing');
+      }, 300);
     }
   };
 
@@ -693,7 +754,9 @@
     const chatbotBubble = document.getElementById('chatbot-bubble');
     
     if (chatbotOpen) {
+      // Show immediately without animation on page load
       chatbotWindow.style.display = 'flex';
+      chatbotWindow.classList.add('open');
       chatbotBubble.style.transform = 'scale(0.9)';
       
       // Update welcome message based on context
@@ -702,7 +765,9 @@
       // Load chat history when opening
       loadChatHistory();
     } else {
+      // Ensure it's hidden and reset classes
       chatbotWindow.style.display = 'none';
+      chatbotWindow.classList.remove('open', 'opening', 'closing');
       chatbotBubble.style.transform = 'scale(1)';
     }
   }
