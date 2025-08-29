@@ -43,7 +43,23 @@ class TeBSTrackAI:
         
         # Fallback knowledge base content
         return """
-        TeBSTrack IT Support Knowledge Base:
+        TeBSTrack Infrastructure Ticketing System Knowledge Base:
+        
+        SYSTEM OVERVIEW:
+        TeBSTrack is an infrastructure team ticketing system that:
+        - Automatically creates tickets from emails sent to the "infra mailbox"
+        - Allows infra team members to track, manage, and resolve user requests
+        - Serves as a central hub for infrastructure-related issues and requests
+        
+        WORKFLOW:
+        1. External users/employees send requests to infra mailbox
+        2. TeBSTrack automatically converts emails into tickets
+        3. Infra team members (TeBSTrack users) view and manage tickets
+        4. Infra team resolves issues and responds to requesters
+        
+        USER ROLES:
+        - TeBSTrack Users: Infra team members who manage and resolve tickets
+        - Ticket Requesters: External users who send emails to infra mailbox
         
         CATEGORIES:
         1. SVN & VPN - Version control and VPN access issues
@@ -255,32 +271,38 @@ USER INFORMATION:
         
         if ticket_context and intent['needs_ticket_details']:
             context_info += f"""
-CURRENT TICKET DETAILS:
+COMPLETE TICKET INFORMATION:
 - Ticket ID: #{ticket_context.get('id', 'N/A')}
 - Subject: {ticket_context.get('subject', 'N/A')}
-- From/Sender: {ticket_context.get('sender', 'N/A')}
-- Category: {ticket_context.get('category', 'N/A')}
+- REQUEST BY (Email Sender): {ticket_context.get('sender', 'N/A')}
+- Category: {ticket_context.get('category', 'N/A')} 
 - Status: {ticket_context.get('status', 'N/A')}
 - Urgency: {ticket_context.get('urgency', 'N/A')}
-- Created: {ticket_context.get('created_at', 'N/A')}
+- Created Date: {ticket_context.get('created_at', 'N/A')}
 - Assigned to: {ticket_context.get('assigned_to', 'Unassigned')}
 
-TICKET CONTENT:
+ORIGINAL EMAIL REQUEST:
 {ticket_context.get('body', 'No description available')}
+
+IMPORTANT: This ticket was automatically created from an email sent to the infra mailbox. The "REQUEST BY" field shows the external user who sent the email request. Your role is to help the infra team member resolve this request.
 """
         elif ticket_context:
             # Provide comprehensive context for all questions when viewing a ticket
             context_info += f"""
-CURRENT TICKET CONTEXT:
+COMPLETE TICKET INFORMATION:
 - Ticket ID: #{ticket_context.get('id', 'N/A')}
 - Subject: {ticket_context.get('subject', 'N/A')}
-- From/Sender: {ticket_context.get('sender', 'N/A')}
+- REQUEST BY (Email Sender): {ticket_context.get('sender', 'N/A')}
 - Category: {ticket_context.get('category', 'N/A')}
 - Status: {ticket_context.get('status', 'N/A')}
 - Urgency: {ticket_context.get('urgency', 'N/A')}
-- Created: {ticket_context.get('created_at', 'N/A')}
+- Created Date: {ticket_context.get('created_at', 'N/A')}
 - Assigned to: {ticket_context.get('assigned_to', 'Unassigned')}
-- Description: {ticket_context.get('body', 'No description available')}
+
+ORIGINAL EMAIL REQUEST:
+{ticket_context.get('body', 'No description available')}
+
+IMPORTANT: This ticket was automatically created from an email sent to the infra mailbox. The "REQUEST BY" field shows the external user who sent the email request. Your role is to help the infra team member resolve this request.
 """
 
         # Check for direct responses to common questions to avoid AI calls
@@ -296,9 +318,9 @@ CURRENT TICKET CONTEXT:
             elif any(word in message_lower for word in ['when', 'date', 'created', 'received', 'reported', 'occurred', 'happen']) and ('this' in message_lower or 'ticket' in message_lower or 'issue' in message_lower):
                 created_date = ticket_context.get('created_at', 'Unknown')
                 return f"Created: {created_date}"
-            elif any(word in message_lower for word in ['who', 'sender', 'from']) and any(word in message_lower for word in ['requested', 'sent', 'created', 'mail']):
+            elif any(word in message_lower for word in ['who', 'sender', 'from']) and any(word in message_lower for word in ['requested', 'sent', 'created', 'mail', 'request', 'ticket']):
                 sender = ticket_context.get('sender', 'Unknown')
-                return f"Sender: {sender}"
+                return f"Requested by: {sender}"
             # For more complex questions like "what should I do next?", let AI provide comprehensive response
 
         # Build system prompt based on intent
@@ -321,8 +343,8 @@ USER QUESTION: {user_message}
 Provide a helpful response using any relevant context available."""
 
         try:
-            # Increased token limits for more informative responses (paragraph length)
-            max_tokens = 100 if intent.get('is_casual', False) else (300 if intent.get('needs_ticket_details', False) else 200)
+            # Significantly increased token limits for comprehensive, detailed responses
+            max_tokens = 150 if intent.get('is_casual', False) else (500 if intent.get('needs_ticket_details', False) else 300)
             
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -361,13 +383,15 @@ Provide a helpful response using any relevant context available."""
             'what is this ticket', 'ticket summary', 'ticket information'
         ]
         
-        # Keywords that definitely need ticket context (including date questions)
+        # Keywords that definitely need ticket context (including specific who/when questions)
         definite_ticket_keywords = [
             'status', 'category', 'urgency', 'assigned', 'created', 'sender',
             'next steps', 'what should', 'how to resolve', 'solution', 'fix', 'resolve',
             'when was this', 'when did this', 'what date', 'creation date', 'reported',
-            'issue occur', 'this happen', 'this reported', 'who requested', 'who sent',
-            'who created', 'who is the sender', 'from who'
+            'issue occur', 'this happen', 'this reported', 
+            'who requested', 'who sent', 'who created', 'who is the sender', 'from who',
+            'who made this', 'who submitted', 'who opened', 'who filed', 'created by',
+            'requested by', 'sent by', 'submitted by', 'opened by', 'filed by'
         ]
         
         # Questions that might need context but could be general
@@ -435,20 +459,22 @@ Provide a helpful response using any relevant context available."""
         if ticket_context and intent.get('needs_ticket_details', False):
             return f"""Ticket #{ticket_context.get('id', 'N/A')}: {ticket_context.get('subject', 'No subject')}
 Status: {ticket_context.get('status', 'Unknown')} | Category: {ticket_context.get('category', 'N/A')} | Urgency: {ticket_context.get('urgency', 'N/A')}
-From: {ticket_context.get('sender', 'Unknown')} | Created: {ticket_context.get('created_at', 'Unknown')}
-Assigned: {ticket_context.get('assigned_to', 'Unassigned')}"""
+Requested by: {ticket_context.get('sender', 'Unknown')} | Created: {ticket_context.get('created_at', 'Unknown')}
+Assigned: {ticket_context.get('assigned_to', 'Unassigned')}
+
+This ticket was auto-created from an email to the infra mailbox."""
         
         # Brief acknowledgment if viewing ticket but not asking for details
         elif ticket_context:
             user_name = user_context.get('username', '') if user_context else ''
             greeting = f"{user_name}, I" if user_name else "I"
-            return f"{greeting} can see you're viewing Ticket #{ticket_context.get('id', 'N/A')}. How can I help?"
+            return f"{greeting} can see you're viewing Ticket #{ticket_context.get('id', 'N/A')} from {ticket_context.get('sender', 'unknown requester')}. How can I help you resolve this?"
         
         # General responses when no ticket context
         else:
             user_name = user_context.get('username', '') if user_context else ''
             greeting = f"Hi {user_name}! I'm" if user_name else "I'm"
-            return f"{greeting} running in basic mode. How can I help with TeBSTrack?"
+            return f"{greeting} your TeBSTrack assistant, here to help the infra team manage tickets and resolve user requests efficiently."
 
     def _build_chatbot_system_prompt(self, user_message: str, has_ticket_context: bool, intent: Dict[str, bool], user_context: Optional[Dict] = None) -> str:
         """Build an appropriate system prompt based on the user's question and context"""
@@ -465,7 +491,19 @@ CURRENT USER:
 - Role: {role}
 - You are assisting this user with their question"""
         
-        base_prompt = f"""You are TeBSTrack Assistant. Provide helpful, informative responses using all available ticket context.{user_info}"""
+        base_prompt = f"""You are TeBSTrack Assistant, an AI helper for the TeBSTrack Infrastructure Ticketing System.
+
+SYSTEM CONTEXT:
+TeBSTrack is an infrastructure team ticketing system where:
+- External users/employees send requests to an "infra mailbox" 
+- The system automatically creates tickets from these emails
+- Infra team members (TeBSTrack users) view, track, and resolve these tickets
+- You assist infra team members in managing their workflow
+
+USER CONTEXT:
+- TeBSTrack users are infra team members responsible for resolving tickets
+- Ticket requesters are external users who sent emails to the infra mailbox
+- When viewing tickets, the "REQUEST BY" field shows who sent the original email request{user_info}"""
         
         if intent.get('is_casual', False):
             # Handle casual conversation
@@ -477,19 +515,32 @@ CASUAL MODE: Keep responses friendly and brief (1-2 sentences). Be conversationa
             # User wants detailed ticket information
             return base_prompt + """
 
-TICKET MODE: Provide informative responses using the complete ticket context. Include relevant details from all ticket fields. You can write a paragraph if needed to be thorough. Use newlines sparingly for readability."""
+INFRA TEAM TICKET ANALYSIS MODE: 
+- Use the COMPLETE TICKET INFORMATION provided
+- Focus on helping the infra team member understand and resolve the request
+- The "REQUEST BY" field shows the external user who sent the email to infra mailbox
+- This ticket was auto-created from an email request
+- Provide actionable insights for resolving infrastructure requests
+- When asked "who created/requested/sent this", refer to the email sender
+- When asked "who, not when" - focus ONLY on the requester, don't mention dates
+- Help the infra team member understand what needs to be done"""
             
         elif has_ticket_context:
             # User is viewing a ticket but asking general questions
             return base_prompt + """
 
-CONTEXT-AWARE MODE: Use the complete ticket context to provide informed answers. Reference ticket details when relevant to the question. Be informative but not overwhelming."""
+INFRA TEAM CONTEXT-AWARE MODE: 
+- Use the COMPLETE TICKET INFORMATION to help the infra team member
+- The "REQUEST BY" field shows the external user who emailed the infra mailbox
+- This ticket was auto-created from an email request
+- Provide helpful insights for infrastructure team workflow
+- Reference ticket details when relevant to assist in resolution"""
             
         else:
             # General assistance
             return base_prompt + """
 
-HELP MODE: Provide clear, helpful answers about TeBSTrack features and functionality."""
+INFRA TEAM HELP MODE: Provide clear, helpful answers about TeBSTrack features and infrastructure team workflow. Help infra team members manage tickets and resolve user requests efficiently."""
 
 # Initialize AI service
 ai_service = TeBSTrackAI()

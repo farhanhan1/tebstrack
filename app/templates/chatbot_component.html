@@ -24,11 +24,12 @@
   <div id="chatbot-messages" class="chatbot-messages">
     <div class="message bot-message">
       <div class="message-content" id="welcome-message">
-        Hi! I'm your TeBSTrack assistant. I can help you with:
-        <br>• Understanding ticket categories
-        <br>• Troubleshooting common issues  
-        <br>• Navigation and features
-        <br><br>How can I help you today?
+        Hi! I'm your TeBSTrack assistant for the infrastructure team. I can help you with:
+        <br>• Understanding user requests and tickets
+        <br>• Troubleshooting infrastructure issues  
+        <br>• Next steps for resolving requests
+        <br>• Creating and managing tickets
+        <br><br>How can I help you resolve user requests today?
       </div>
     </div>
   </div>
@@ -491,12 +492,12 @@
         </div>
         <div class="message bot-message">
           <div class="message-content" id="welcome-message">
-            Hi! I'm your TeBSTrack assistant. I can help you with:
-            <br>• Understanding ticket categories
-            <br>• Troubleshooting common issues  
-            <br>• Navigation and features
+            Hi! I'm your TeBSTrack assistant for the infrastructure team. I can help you with:
+            <br>• Understanding user requests and tickets
+            <br>• Troubleshooting infrastructure issues  
+            <br>• Next steps for resolving requests
             <br>• Creating and managing tickets
-            <br><br>How can I help you today?
+            <br><br>How can I help you resolve user requests today?
           </div>
         </div>
       `;
@@ -576,12 +577,12 @@
     
     if (ticketContext && ticketContext.id) {
       welcomeElement.innerHTML = `
-        Hi! I'm your TeBSTrack assistant. I can see you're viewing <strong>Ticket #${ticketContext.id}</strong>.
+        Hi! I'm your TeBSTrack assistant for the infrastructure team. I can see you're viewing <strong>Ticket #${ticketContext.id}</strong>.
         <br><br>I can help you with:
-        <br>• Analyzing this specific ticket
-        <br>• Explaining the ticket's status and category
-        <br>• Suggesting next steps
-        <br>• General TeBSTrack questions
+        <br>• Analyzing this user request
+        <br>• Understanding what the requester needs
+        <br>• Suggesting resolution steps
+        <br>• Infrastructure troubleshooting guidance
         <br><br>Try the quick actions below or ask me anything!
       `;
       
@@ -591,12 +592,12 @@
       }
     } else {
       welcomeElement.innerHTML = `
-        Hi! I'm your TeBSTrack assistant. I can help you with:
-        <br>• Understanding ticket categories
-        <br>• Troubleshooting common issues  
-        <br>• Navigation and features
+        Hi! I'm your TeBSTrack assistant for the infrastructure team. I can help you with:
+        <br>• Understanding user requests and tickets
+        <br>• Troubleshooting infrastructure issues  
+        <br>• Next steps for resolving requests
         <br>• Creating and managing tickets
-        <br><br>How can I help you today?
+        <br><br>How can I help you resolve user requests today?
       `;
       
       // Hide quick actions for general context
