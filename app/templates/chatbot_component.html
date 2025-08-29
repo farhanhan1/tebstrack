@@ -365,7 +365,8 @@
 (function() {
   'use strict';
   
-  let chatbotOpen = false;
+  // Initialize chatbot state from localStorage or default to false
+  let chatbotOpen = localStorage.getItem('chatbotOpen') === 'true';
   const CHAT_HISTORY_KEY = 'tebstrack_chat_history';
 
   // Load chat history on page load
@@ -448,6 +449,9 @@
     const chatbotBubble = document.getElementById('chatbot-bubble');
     
     chatbotOpen = !chatbotOpen;
+    
+    // Save state to localStorage
+    localStorage.setItem('chatbotOpen', chatbotOpen);
     
     if (chatbotOpen) {
       chatbotWindow.style.display = 'flex';
@@ -683,15 +687,32 @@
     return null;
   }
 
-  // Close chatbot when clicking outside
-  document.addEventListener('click', function(event) {
+  // Initialize chatbot state on page load
+  function initializeChatbotState() {
     const chatbotWindow = document.getElementById('chatbot-window');
     const chatbotBubble = document.getElementById('chatbot-bubble');
     
-    if (chatbotOpen && !chatbotWindow.contains(event.target) && !chatbotBubble.contains(event.target)) {
-      toggleChatbot();
+    if (chatbotOpen) {
+      chatbotWindow.style.display = 'flex';
+      chatbotBubble.style.transform = 'scale(0.9)';
+      
+      // Update welcome message based on context
+      updateWelcomeMessage();
+      
+      // Load chat history when opening
+      loadChatHistory();
+    } else {
+      chatbotWindow.style.display = 'none';
+      chatbotBubble.style.transform = 'scale(1)';
     }
-  });
+  }
+
+  // Initialize chatbot state when the page loads
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeChatbotState);
+  } else {
+    initializeChatbotState();
+  }
 
 })();
 </script>
