@@ -231,13 +231,13 @@ Respond with JSON:
                 "recommended": False
             }
 
-    def chatbot_response(self, user_message: str, ticket_context: Optional[Dict] = None) -> str:
+    def chatbot_response(self, user_message: str, ticket_context: Optional[Dict] = None, user_context: Optional[Dict] = None) -> str:
         """
         Generate intelligent, context-aware chatbot response for user questions
         """
         # Check if OpenAI is available, if not provide fallback responses
         if not self.client:
-            return self._fallback_response(user_message, ticket_context)
+            return self._fallback_response(user_message, ticket_context, user_context)
         
         # Analyze the user's intent to determine response type
         intent = self._analyze_user_intent(user_message)
@@ -245,8 +245,16 @@ Respond with JSON:
         # Build context based on intent - include comprehensive ticket details when ticket context exists
         context_info = ""
         
+        # Add user information to context
+        if user_context:
+            context_info += f"""
+USER INFORMATION:
+- Current User: {user_context.get('username', 'Unknown')}
+- User Role: {user_context.get('role', 'user')}
+"""
+        
         if ticket_context and intent['needs_ticket_details']:
-            context_info = f"""
+            context_info += f"""
 CURRENT TICKET DETAILS:
 - Ticket ID: #{ticket_context.get('id', 'N/A')}
 - Subject: {ticket_context.get('subject', 'N/A')}
@@ -262,7 +270,7 @@ TICKET CONTENT:
 """
         elif ticket_context:
             # Provide comprehensive context for all questions when viewing a ticket
-            context_info = f"""
+            context_info += f"""
 CURRENT TICKET CONTEXT:
 - Ticket ID: #{ticket_context.get('id', 'N/A')}
 - Subject: {ticket_context.get('subject', 'N/A')}
@@ -294,7 +302,7 @@ CURRENT TICKET CONTEXT:
             # For more complex questions like "what should I do next?", let AI provide comprehensive response
 
         # Build system prompt based on intent
-        system_prompt = self._build_chatbot_system_prompt(user_message, ticket_context is not None, intent)
+        system_prompt = self._build_chatbot_system_prompt(user_message, ticket_context is not None, intent, user_context)
         
         # Build the user prompt
         if intent['needs_ticket_details']:
@@ -330,7 +338,7 @@ Provide a helpful response using any relevant context available."""
             
         except Exception as e:
             logging.error(f"Chatbot response failed: {e}")
-            return self._fallback_response(user_message, ticket_context, f"AI service error: {str(e)}")
+            return self._fallback_response(user_message, ticket_context, user_context, f"AI service error: {str(e)}")
 
     def _analyze_user_intent(self, user_message: str) -> Dict[str, bool]:
         """
@@ -390,7 +398,7 @@ Provide a helpful response using any relevant context available."""
         # Default: assume they want brief response
         return {'needs_ticket_details': False, 'is_casual': False}
 
-    def _fallback_response(self, user_message: str, ticket_context: Optional[Dict] = None, error_msg: str = None) -> str:
+    def _fallback_response(self, user_message: str, ticket_context: Optional[Dict] = None, user_context: Optional[Dict] = None, error_msg: str = None) -> str:
         """Provide fallback responses when OpenAI is not available"""
         
         # Analyze user intent even in fallback mode
@@ -412,9 +420,16 @@ Provide a helpful response using any relevant context available."""
             message_lower = user_message.lower().strip()
             for key, response in casual_responses.items():
                 if key in message_lower:
+                    # Add user name if available
+                    if user_context and user_context.get('username'):
+                        if key in ['hi', 'hello', 'hey']:
+                            return f"Hi {user_context['username']}! 👋 How can I help you today?"
                     return response
             
-            return "Hi! How can I help with TeBSTrack?"
+            # Default casual response with user name
+            user_name = user_context.get('username', '') if user_context else ''
+            greeting = f"Hi {user_name}! " if user_name else "Hi! "
+            return f"{greeting}How can I help with TeBSTrack?"
         
         # If we have ticket context and user wants ticket details
         if ticket_context and intent.get('needs_ticket_details', False):
@@ -425,16 +440,32 @@ Assigned: {ticket_context.get('assigned_to', 'Unassigned')}"""
         
         # Brief acknowledgment if viewing ticket but not asking for details
         elif ticket_context:
-            return f"I can see you're viewing Ticket #{ticket_context.get('id', 'N/A')}. How can I help?"
+            user_name = user_context.get('username', '') if user_context else ''
+            greeting = f"{user_name}, I" if user_name else "I"
+            return f"{greeting} can see you're viewing Ticket #{ticket_context.get('id', 'N/A')}. How can I help?"
         
         # General responses when no ticket context
         else:
-            return "I'm running in basic mode. How can I help with TeBSTrack?"
+            user_name = user_context.get('username', '') if user_context else ''
+            greeting = f"Hi {user_name}! I'm" if user_name else "I'm"
+            return f"{greeting} running in basic mode. How can I help with TeBSTrack?"
 
-    def _build_chatbot_system_prompt(self, user_message: str, has_ticket_context: bool, intent: Dict[str, bool]) -> str:
+    def _build_chatbot_system_prompt(self, user_message: str, has_ticket_context: bool, intent: Dict[str, bool], user_context: Optional[Dict] = None) -> str:
         """Build an appropriate system prompt based on the user's question and context"""
         
-        base_prompt = """You are TeBSTrack Assistant. Provide helpful, informative responses using all available ticket context."""
+        # Build user information section
+        user_info = ""
+        if user_context:
+            username = user_context.get('username', 'Unknown')
+            role = user_context.get('role', 'user')
+            user_info = f"""
+
+CURRENT USER:
+- Username: {username}
+- Role: {role}
+- You are assisting this user with their question"""
+        
+        base_prompt = f"""You are TeBSTrack Assistant. Provide helpful, informative responses using all available ticket context.{user_info}"""
         
         if intent.get('is_casual', False):
             # Handle casual conversation

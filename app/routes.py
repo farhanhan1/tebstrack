@@ -1303,7 +1303,15 @@ def ai_chatbot():
                 }
         
         ai_service = get_ai_service()
-        response = ai_service.chatbot_response(message, ticket_context)
+        
+        # Create user context for the chatbot
+        user_context = {
+            'username': current_user.username,
+            'role': current_user.role,
+            'id': current_user.id
+        }
+        
+        response = ai_service.chatbot_response(message, ticket_context, user_context)
         
         return jsonify({
             'success': True,
