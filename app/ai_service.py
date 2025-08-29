@@ -239,15 +239,18 @@ Respond with JSON:
         if not self.client:
             return self._fallback_response(user_message, ticket_context)
         
-        # Build comprehensive context
+        # Analyze the user's intent to determine response type
+        intent = self._analyze_user_intent(user_message)
+        
+        # Build context based on intent - include comprehensive ticket details when ticket context exists
         context_info = ""
         
-        if ticket_context:
+        if ticket_context and intent['needs_ticket_details']:
             context_info = f"""
 CURRENT TICKET DETAILS:
 - Ticket ID: #{ticket_context.get('id', 'N/A')}
 - Subject: {ticket_context.get('subject', 'N/A')}
-- From: {ticket_context.get('sender', 'N/A')}
+- From/Sender: {ticket_context.get('sender', 'N/A')}
 - Category: {ticket_context.get('category', 'N/A')}
 - Status: {ticket_context.get('status', 'N/A')}
 - Urgency: {ticket_context.get('urgency', 'N/A')}
@@ -256,33 +259,63 @@ CURRENT TICKET DETAILS:
 
 TICKET CONTENT:
 {ticket_context.get('body', 'No description available')}
-
-RECENT ACTIVITY:
 """
-            # Add recent activity if available
-            recent_activity = ticket_context.get('recent_activity', [])
-            if recent_activity:
-                for activity in recent_activity[:3]:  # Show last 3 activities
-                    context_info += f"- {activity.get('timestamp', '')}: {activity.get('action', '')} by {activity.get('user', '')} - {activity.get('details', '')}\n"
-            else:
-                context_info += "- No recent activity tracking available (logging system is general-purpose)\n"
+        elif ticket_context:
+            # Provide comprehensive context for all questions when viewing a ticket
+            context_info = f"""
+CURRENT TICKET CONTEXT:
+- Ticket ID: #{ticket_context.get('id', 'N/A')}
+- Subject: {ticket_context.get('subject', 'N/A')}
+- From/Sender: {ticket_context.get('sender', 'N/A')}
+- Category: {ticket_context.get('category', 'N/A')}
+- Status: {ticket_context.get('status', 'N/A')}
+- Urgency: {ticket_context.get('urgency', 'N/A')}
+- Created: {ticket_context.get('created_at', 'N/A')}
+- Assigned to: {ticket_context.get('assigned_to', 'Unassigned')}
+- Description: {ticket_context.get('body', 'No description available')}
+"""
 
-        # Determine the type of query and build appropriate system prompt
-        system_prompt = self._build_chatbot_system_prompt(user_message, ticket_context is not None)
+        # Check for direct responses to common questions to avoid AI calls
+        if ticket_context and intent['needs_ticket_details']:
+            message_lower = user_message.lower()
+            # Only provide ultra-short responses for very simple, single-word type questions
+            if 'status?' == message_lower.strip() or ('status' in message_lower and len(message_lower.split()) <= 3):
+                return f"Status: {ticket_context.get('status', 'Unknown')}"
+            elif 'category?' == message_lower.strip() or ('category' in message_lower and len(message_lower.split()) <= 3):
+                return f"Category: {ticket_context.get('category', 'N/A')} - handles VPN/network access"
+            elif 'urgency?' == message_lower.strip() or ('urgency' in message_lower and len(message_lower.split()) <= 3):
+                return f"Urgency: {ticket_context.get('urgency', 'N/A')}"
+            elif any(word in message_lower for word in ['when', 'date', 'created', 'received', 'reported', 'occurred', 'happen']) and ('this' in message_lower or 'ticket' in message_lower or 'issue' in message_lower):
+                created_date = ticket_context.get('created_at', 'Unknown')
+                return f"Created: {created_date}"
+            elif any(word in message_lower for word in ['who', 'sender', 'from']) and any(word in message_lower for word in ['requested', 'sent', 'created', 'mail']):
+                sender = ticket_context.get('sender', 'Unknown')
+                return f"Sender: {sender}"
+            # For more complex questions like "what should I do next?", let AI provide comprehensive response
+
+        # Build system prompt based on intent
+        system_prompt = self._build_chatbot_system_prompt(user_message, ticket_context is not None, intent)
         
         # Build the user prompt
-        user_prompt = f"""
+        if intent['needs_ticket_details']:
+            user_prompt = f"""
 {context_info}
-
-KNOWLEDGE BASE REFERENCE:
-{self.knowledge_base}
 
 USER QUESTION: {user_message}
 
-Please provide a helpful, specific response based on the ticket context and knowledge base.
-"""
+Using the complete ticket context above, provide an informative and helpful response. Include relevant details from the ticket information to fully answer the question."""
+        else:
+            user_prompt = f"""
+{context_info}
+
+USER QUESTION: {user_message}
+
+Provide a helpful response using any relevant context available."""
 
         try:
+            # Increased token limits for more informative responses (paragraph length)
+            max_tokens = 100 if intent.get('is_casual', False) else (300 if intent.get('needs_ticket_details', False) else 200)
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -290,7 +323,7 @@ Please provide a helpful, specific response based on the ticket context and know
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.7,
-                max_tokens=400  # Increased for more detailed responses
+                max_tokens=max_tokens
             )
             
             return response.choices[0].message.content
@@ -299,101 +332,133 @@ Please provide a helpful, specific response based on the ticket context and know
             logging.error(f"Chatbot response failed: {e}")
             return self._fallback_response(user_message, ticket_context, f"AI service error: {str(e)}")
 
+    def _analyze_user_intent(self, user_message: str) -> Dict[str, bool]:
+        """
+        Analyze user message to determine what kind of response they need
+        """
+        message_lower = user_message.lower().strip()
+        
+        # Greetings and casual conversation
+        casual_phrases = [
+            'hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 
+            'thanks', 'thank you', 'bye', 'goodbye', 'how are you', 'how are you?',
+            'how\'s it going', 'how is it going', 'what\'s up', 'whats up',
+            'nice to meet you', 'pleased to meet you', 'good to see you'
+        ]
+        
+        # Keywords that explicitly indicate wanting ticket details
+        explicit_ticket_keywords = [
+            'about this ticket', 'current ticket', 'this ticket', 'ticket details',
+            'tell me about', 'explain this', 'describe this', 'summary of this',
+            'what is this ticket', 'ticket summary', 'ticket information'
+        ]
+        
+        # Keywords that definitely need ticket context (including date questions)
+        definite_ticket_keywords = [
+            'status', 'category', 'urgency', 'assigned', 'created', 'sender',
+            'next steps', 'what should', 'how to resolve', 'solution', 'fix', 'resolve',
+            'when was this', 'when did this', 'what date', 'creation date', 'reported',
+            'issue occur', 'this happen', 'this reported', 'who requested', 'who sent',
+            'who created', 'who is the sender', 'from who'
+        ]
+        
+        # Questions that might need context but could be general
+        contextual_questions = [
+            'what', 'who', 'when', 'where', 'why', 'how', 'explain', 'show me', 'tell me more'
+        ]
+        
+        # Check if explicitly asking about ticket (check this FIRST)
+        if any(keyword in message_lower for keyword in explicit_ticket_keywords):
+            return {'needs_ticket_details': True, 'is_casual': False}
+        
+        # Check for specific ticket-related keywords including date questions (check BEFORE casual)
+        if any(keyword in message_lower for keyword in definite_ticket_keywords):
+            return {'needs_ticket_details': True, 'is_casual': False}
+        
+        # Check if it's a simple greeting or casual conversation (check AFTER ticket keywords)
+        if any(phrase in message_lower for phrase in casual_phrases):
+            return {'needs_ticket_details': False, 'is_casual': True}
+        
+        # For contextual questions, only assume they want ticket details if they mention specific terms
+        if any(word in message_lower for word in contextual_questions):
+            # If the question is very short and general, treat as casual
+            if len(message_lower.split()) <= 4 and not any(keyword in message_lower for keyword in definite_ticket_keywords):
+                return {'needs_ticket_details': False, 'is_casual': False}
+            # Otherwise assume they want ticket details
+            return {'needs_ticket_details': True, 'is_casual': False}
+        
+        # Default: assume they want brief response
+        return {'needs_ticket_details': False, 'is_casual': False}
+
     def _fallback_response(self, user_message: str, ticket_context: Optional[Dict] = None, error_msg: str = None) -> str:
         """Provide fallback responses when OpenAI is not available"""
         
-        # If we have ticket context, provide detailed ticket information
-        if ticket_context:
-            ticket_info = f"""**Ticket #{ticket_context.get('id', 'Unknown')} Summary:**
-
-📋 **Subject:** {ticket_context.get('subject', 'No subject')}
-👤 **From:** {ticket_context.get('sender', 'Unknown sender')}
-📂 **Category:** {ticket_context.get('category', 'Uncategorized')}
-🔄 **Status:** {ticket_context.get('status', 'Unknown')}
-⚡ **Urgency:** {ticket_context.get('urgency', 'Not set')}
-📅 **Created:** {ticket_context.get('created_at', 'Unknown')}
-👥 **Assigned to:** {ticket_context.get('assigned_to', 'Unassigned')}
-
-**Ticket Description:**
-{ticket_context.get('body', 'No description available')}"""
-
-            # Provide different responses based on the user's question
-            message_lower = user_message.lower()
+        # Analyze user intent even in fallback mode
+        intent = self._analyze_user_intent(user_message)
+        
+        # Handle casual conversation
+        if intent.get('is_casual', False):
+            casual_responses = {
+                'hi': "Hi there! 👋",
+                'hello': "Hello! How can I help?",
+                'hey': "Hey! What's up?",
+                'thanks': "You're welcome! 😊",
+                'thank you': "Happy to help!",
+                'bye': "Goodbye! 👋",
+                'goodbye': "See you later!",
+                'how are you': "I'm great! How can I help you today?"
+            }
             
-            if any(word in message_lower for word in ['about', 'summary', 'tell me', 'what is', 'describe']):
-                return ticket_info
+            message_lower = user_message.lower().strip()
+            for key, response in casual_responses.items():
+                if key in message_lower:
+                    return response
             
-            elif any(word in message_lower for word in ['next', 'do', 'action', 'steps']):
-                return f"""{ticket_info}
-
-**Suggested Next Steps:**
-• Review the ticket details above
-• Check if the category and urgency are appropriate
-• Consider assigning the ticket if unassigned
-• Follow your organization's procedures for {ticket_context.get('category', 'this type of')} requests"""
-            
-            elif any(word in message_lower for word in ['category', 'urgency', 'priority']):
-                return f"""**Category & Urgency Information:**
-
-📂 **Category:** {ticket_context.get('category', 'Uncategorized')}
-⚡ **Urgency:** {ticket_context.get('urgency', 'Not set')}
-
-This ticket is categorized as "{ticket_context.get('category', 'Uncategorized')}" and has "{ticket_context.get('urgency', 'Not set')}" urgency priority."""
-            
-            else:
-                return f"""{ticket_info}
-
-I can see you're viewing this ticket, but I need OpenAI API configuration for more intelligent responses. However, I can provide basic ticket information as shown above."""
+            return "Hi! How can I help with TeBSTrack?"
+        
+        # If we have ticket context and user wants ticket details
+        if ticket_context and intent.get('needs_ticket_details', False):
+            return f"""Ticket #{ticket_context.get('id', 'N/A')}: {ticket_context.get('subject', 'No subject')}
+Status: {ticket_context.get('status', 'Unknown')} | Category: {ticket_context.get('category', 'N/A')} | Urgency: {ticket_context.get('urgency', 'N/A')}
+From: {ticket_context.get('sender', 'Unknown')} | Created: {ticket_context.get('created_at', 'Unknown')}
+Assigned: {ticket_context.get('assigned_to', 'Unassigned')}"""
+        
+        # Brief acknowledgment if viewing ticket but not asking for details
+        elif ticket_context:
+            return f"I can see you're viewing Ticket #{ticket_context.get('id', 'N/A')}. How can I help?"
         
         # General responses when no ticket context
         else:
-            if error_msg:
-                return f"I'm currently unable to access the AI service ({error_msg}). However, I can still help you navigate TeBSTrack! Try viewing a specific ticket for detailed information, or ask me about general TeBSTrack features."
-            else:
-                return "I'm currently running in basic mode (OpenAI API not configured). I can provide ticket information when you're viewing a specific ticket, or help with general TeBSTrack navigation. Try opening a ticket to see detailed information!"
+            return "I'm running in basic mode. How can I help with TeBSTrack?"
 
-    def _build_chatbot_system_prompt(self, user_message: str, has_ticket_context: bool) -> str:
+    def _build_chatbot_system_prompt(self, user_message: str, has_ticket_context: bool, intent: Dict[str, bool]) -> str:
         """Build an appropriate system prompt based on the user's question and context"""
         
-        base_prompt = """You are TeBSTrack Assistant, an intelligent IT support chatbot. You help users understand tickets, navigate the system, and get support guidance."""
+        base_prompt = """You are TeBSTrack Assistant. Provide helpful, informative responses using all available ticket context."""
         
-        if has_ticket_context:
-            # User is viewing a specific ticket
-            ticket_aware_prompt = base_prompt + """
+        if intent.get('is_casual', False):
+            # Handle casual conversation
+            return base_prompt + """
 
-TICKET-SPECIFIC CAPABILITIES:
-- Analyze and summarize the current ticket
-- Explain the ticket's category, urgency, and status
-- Suggest next steps based on ticket content
-- Interpret recent activity and progress
-- Identify potential solutions based on the issue description
-- Explain technical terms or procedures mentioned in the ticket
+CASUAL MODE: Keep responses friendly and brief (1-2 sentences). Be conversational but helpful."""
+            
+        elif has_ticket_context and intent.get('needs_ticket_details', False):
+            # User wants detailed ticket information
+            return base_prompt + """
 
-RESPONSE GUIDELINES:
-- Always reference the specific ticket when relevant
-- Use ticket details to provide contextualized advice
-- If asked about "this ticket", refer to the current ticket data
-- Provide actionable insights based on the ticket's category and content
-- Explain any technical jargon in user-friendly terms
-"""
+TICKET MODE: Provide informative responses using the complete ticket context. Include relevant details from all ticket fields. You can write a paragraph if needed to be thorough. Use newlines sparingly for readability."""
+            
+        elif has_ticket_context:
+            # User is viewing a ticket but asking general questions
+            return base_prompt + """
+
+CONTEXT-AWARE MODE: Use the complete ticket context to provide informed answers. Reference ticket details when relevant to the question. Be informative but not overwhelming."""
+            
         else:
-            # General TeBSTrack assistance
-            ticket_aware_prompt = base_prompt + """
+            # General assistance
+            return base_prompt + """
 
-GENERAL ASSISTANCE CAPABILITIES:
-- Explain TeBSTrack features and navigation
-- Guide users through ticket creation and management
-- Explain category types and when to use them
-- Help with understanding urgency levels
-- Provide general IT support guidance
-
-RESPONSE GUIDELINES:
-- Provide clear, step-by-step instructions
-- Explain system features and best practices
-- Help users understand how to use TeBSTrack effectively
-"""
-
-        return ticket_aware_prompt
+HELP MODE: Provide clear, helpful answers about TeBSTrack features and functionality."""
 
 # Initialize AI service
 ai_service = TeBSTrackAI()
