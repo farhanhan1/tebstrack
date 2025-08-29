@@ -271,6 +271,19 @@
   color: white;
 }
 
+.clear-confirmation-message {
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: #10b981;
+  padding: 8px 16px;
+  margin: 8px 16px 4px 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  transition: opacity 0.3s ease;
+}
+
 .chatbot-input-container {
   padding: 16px 20px;
   border-top: 1px solid #e5e7eb;
@@ -471,14 +484,18 @@
       sessionStorage.removeItem(CHAT_HISTORY_KEY);
       const messagesContainer = document.getElementById('chatbot-messages');
       
-      // Reset to just the welcome message
+      // Reset to just the welcome message with confirmation message above
       messagesContainer.innerHTML = `
+        <div class="clear-confirmation-message">
+          Chat history has been cleared! 🗑️
+        </div>
         <div class="message bot-message">
           <div class="message-content" id="welcome-message">
             Hi! I'm your TeBSTrack assistant. I can help you with:
             <br>• Understanding ticket categories
             <br>• Troubleshooting common issues  
             <br>• Navigation and features
+            <br>• Creating and managing tickets
             <br><br>How can I help you today?
           </div>
         </div>
@@ -487,8 +504,18 @@
       // Update welcome message for current context
       updateWelcomeMessage();
       
-      // Show confirmation that history was cleared
-      addMessageToChat('Chat history has been cleared! 🗑️', 'bot');
+      // Auto-hide the confirmation message after 3 seconds
+      setTimeout(() => {
+        const confirmationMsg = document.querySelector('.clear-confirmation-message');
+        if (confirmationMsg) {
+          confirmationMsg.style.opacity = '0';
+          setTimeout(() => {
+            if (confirmationMsg.parentNode) {
+              confirmationMsg.parentNode.removeChild(confirmationMsg);
+            }
+          }, 300); // Wait for fade out
+        }
+      }, 3000);
       
     } catch (error) {
       console.error('Error clearing chat history:', error);
