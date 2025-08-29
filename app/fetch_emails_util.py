@@ -136,18 +136,57 @@ def fetch_and_store_emails():
                 if sender and GMAIL_USER and GMAIL_USER.lower() in sender.lower():
                     ticket = None
                 else:
+                    # Auto-categorize new tickets using AI
+                    try:
+                        from app.ai_service import get_ai_service
+                        ai_service = get_ai_service()
+                        categorization_result = ai_service.categorize_ticket(subject, body, sender)
+                        
+                        # Use AI-suggested category and urgency if available
+                        ai_category = categorization_result.get('category', 'General')
+                        ai_urgency = categorization_result.get('urgency', 'Medium')
+                        
+                        # Validate that the AI-suggested category exists in the database
+                        from app.models import Category
+                        category_obj = Category.query.filter_by(name=ai_category).first()
+                        if not category_obj:
+                            ai_category = 'General'  # Fallback to General if AI category doesn't exist
+                            
+                        print(f"[DEBUG] AI categorized new ticket '{subject}' as '{ai_category}' with urgency '{ai_urgency}' (confidence: {categorization_result.get('confidence', 0):.2f})", flush=True)
+                        
+                    except Exception as e:
+                        # Fallback to defaults if AI categorization fails
+                        ai_category = 'General'
+                        ai_urgency = 'Medium'
+                        print(f"[DEBUG] AI categorization failed for new ticket '{subject}': {e}. Using defaults.", flush=True)
+                    
                     ticket = Ticket(
                         subject=subject,
                         sender=sender,
                         created_at=created_at,
                         status='Open',
-                        category='General',
-                        urgency='Medium',
+                        category=ai_category,
+                        urgency=ai_urgency,
                         description=body,
                         thread_id=thread_id
                     )
                     db.session.add(ticket)
                     db.session.commit()
+                    
+                    # Log AI categorization if it was used successfully
+                    if ai_category != 'General' or ai_urgency != 'Medium':
+                        try:
+                            from app.models import Log
+                            confidence = categorization_result.get('confidence', 0)
+                            log = Log(
+                                user='System (AI)',
+                                action='auto_categorize_email',
+                                details=f"AI auto-categorized new email ticket '{subject}' (ID: {ticket.id}) as '{ai_category}' with urgency '{ai_urgency}' (confidence: {confidence:.1%})"
+                            )
+                            db.session.add(log)
+                            db.session.commit()
+                        except Exception as log_error:
+                            print(f"[DEBUG] Failed to log AI categorization: {log_error}", flush=True)
             # Save email message only if ticket exists and is not deleted, and not already saved
             if ticket:
                 from sqlalchemy import and_
