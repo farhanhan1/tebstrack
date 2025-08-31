@@ -6,11 +6,47 @@
   <!-- Filter Options -->
   <div class="admin-section" style="margin-top:1rem; margin-bottom:1rem;">
     <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-      <label for="actionFilter" style="font-weight: 600;">Filter by Action:</label>
+      <label for="actionFilter" style="font-weight: 600;">Filter by Category:</label>
       <select id="actionFilter" onchange="filterLogs()" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
-        <option value="">All Actions</option>
-        {% set unique_actions = logs|map(attribute='action')|unique|list|sort %}
+        <option value="">All Categories</option>
+        {% set unique_actions = logs|map(attribute='action')|unique|list %}
+        {% set categories = {
+          'Authentication': [],
+          'Knowledge Base': [],
+          'Ticket Management': [],
+          'Bulk Operations': [],
+          'User Management': [],
+          'Email Operations': [],
+          'System Operations': []
+        } %}
+        
         {% for action in unique_actions %}
+          {% if 'login' in action.lower() or 'logout' in action.lower() %}
+            {% set _ = categories['Authentication'].append(action) %}
+          {% elif 'knowledge base' in action.lower() %}
+            {% set _ = categories['Knowledge Base'].append(action) %}
+          {% elif 'ticket' in action.lower() %}
+            {% set _ = categories['Ticket Management'].append(action) %}
+          {% elif 'bulk' in action.lower() %}
+            {% set _ = categories['Bulk Operations'].append(action) %}
+          {% elif 'user' in action.lower() %}
+            {% set _ = categories['User Management'].append(action) %}
+          {% elif 'email' in action.lower() %}
+            {% set _ = categories['Email Operations'].append(action) %}
+          {% else %}
+            {% set _ = categories['System Operations'].append(action) %}
+          {% endif %}
+        {% endfor %}
+        
+        {% for category, actions in categories.items() if actions %}
+        <option value="{{ category }}">{{ category }} ({{ actions|length }})</option>
+        {% endfor %}
+      </select>
+      
+      <label for="specificActionFilter" style="font-weight: 600; margin-left: 1rem;">Specific Action:</label>
+      <select id="specificActionFilter" onchange="filterLogs()" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+        <option value="">All Actions</option>
+        {% for action in unique_actions|sort %}
         <option value="{{ action }}">{{ action }}</option>
         {% endfor %}
       </select>
@@ -49,22 +85,35 @@
       </thead>
       <tbody>
         {% for log in logs %}
-        <tr class="audit-row" data-action="{{ log.action }}" data-user="{{ log.user }}">
+        <tr class="audit-row" data-action="{{ log.action }}" data-user="{{ log.user }}" data-category="{% if 'login' in log.action.lower() or 'logout' in log.action.lower() %}Authentication{% elif 'knowledge base' in log.action.lower() %}Knowledge Base{% elif 'ticket' in log.action.lower() %}Ticket Management{% elif 'bulk' in log.action.lower() %}Bulk Operations{% elif 'user' in log.action.lower() %}User Management{% elif 'email' in log.action.lower() %}Email Operations{% else %}System Operations{% endif %}">
           <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else log.timestamp }}</td>
           <td>
             <span class="user-badge">{{ log.user }}</span>
           </td>
           <td>
-            {% if 'Knowledge Base' in log.action %}
+            {% set action = log.action %}
+            {% set category = '' %}
+            {% if 'login' in action.lower() or 'logout' in action.lower() %}
+              {% set category = 'Authentication' %}
+              <span class="action-badge auth-action">{{ log.action }}</span>
+            {% elif 'knowledge base' in action.lower() %}
+              {% set category = 'Knowledge Base' %}
               <span class="action-badge kb-action">{{ log.action }}</span>
-            {% elif 'User' in log.action %}
-              <span class="action-badge user-action">{{ log.action }}</span>
-            {% elif 'System' in log.action %}
-              <span class="action-badge system-action">{{ log.action }}</span>
-            {% elif 'Ticket' in log.action %}
+            {% elif 'ticket' in action.lower() %}
+              {% set category = 'Ticket Management' %}
               <span class="action-badge ticket-action">{{ log.action }}</span>
+            {% elif 'bulk' in action.lower() %}
+              {% set category = 'Bulk Operations' %}
+              <span class="action-badge bulk-action">{{ log.action }}</span>
+            {% elif 'user' in action.lower() %}
+              {% set category = 'User Management' %}
+              <span class="action-badge user-action">{{ log.action }}</span>
+            {% elif 'email' in action.lower() %}
+              {% set category = 'Email Operations' %}
+              <span class="action-badge email-action">{{ log.action }}</span>
             {% else %}
-              <span class="action-badge default-action">{{ log.action }}</span>
+              {% set category = 'System Operations' %}
+              <span class="action-badge system-action">{{ log.action }}</span>
             {% endif %}
           </td>
           <td class="details-cell">
@@ -136,9 +185,19 @@
   color: #be185d;
 }
 
-.default-action {
-  background-color: #f3f4f6;
-  color: #374151;
+.auth-action {
+  background-color: #ddd6fe;
+  color: #5b21b6;
+}
+
+.bulk-action {
+  background-color: #fed7d7;
+  color: #c53030;
+}
+
+.email-action {
+  background-color: #bee3f8;
+  color: #2a69ac;
 }
 
 .details-cell {
@@ -173,17 +232,23 @@
 
 <script>
 function filterLogs() {
-  const actionFilter = document.getElementById('actionFilter').value;
+  const categoryFilter = document.getElementById('actionFilter').value;
+  const specificActionFilter = document.getElementById('specificActionFilter').value;
   const userFilter = document.getElementById('userFilter').value;
   const rows = document.querySelectorAll('.audit-row');
   
   rows.forEach(row => {
     const action = row.getAttribute('data-action');
+    const category = row.getAttribute('data-category');
     const user = row.getAttribute('data-user');
     
     let showRow = true;
     
-    if (actionFilter && action !== actionFilter) {
+    if (categoryFilter && category !== categoryFilter) {
+      showRow = false;
+    }
+    
+    if (specificActionFilter && action !== specificActionFilter) {
       showRow = false;
     }
     
@@ -201,6 +266,7 @@ function filterLogs() {
 
 function clearFilters() {
   document.getElementById('actionFilter').value = '';
+  document.getElementById('specificActionFilter').value = '';
   document.getElementById('userFilter').value = '';
   filterLogs();
 }
