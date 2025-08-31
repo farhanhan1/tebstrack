@@ -1408,3 +1408,334 @@ def ai_auto_categorize_ticket(ticket_id):
     except Exception as e:
         logging.error(f"Error in auto-categorization: {e}")
         return jsonify({'error': f'Auto-categorization failed: {str(e)}'}), 500
+
+
+@main.route('/open_in_outlook/<int:ticket_id>')
+@login_required
+def open_in_outlook(ticket_id):
+    """Open original email directly from email server in Outlook"""
+    ticket = Ticket.query.get_or_404(ticket_id)
+    
+    # Role-based access control
+    if current_user.role == 'infra':
+        if ticket.assigned_to is not None and ticket.assigned_to != current_user.id:
+            flash('You do not have permission to view this ticket.', 'error')
+            return redirect(url_for('main.tickets'))
+    
+    # Get the latest email from thread if available
+    from .models import EmailMessage
+    latest_email = None
+    if ticket.thread_id:
+        latest_email = EmailMessage.query.filter_by(
+            thread_id=ticket.thread_id
+        ).order_by(EmailMessage.sent_at.desc()).first()
+    
+    # Get message ID for IMAP lookup
+    message_id = None
+    if latest_email and latest_email.message_id:
+        message_id = latest_email.message_id
+    
+    if not message_id:
+        # Fallback to EML approach if no message_id
+        return download_eml_fallback(ticket, latest_email)
+    
+    try:
+        # Connect to IMAP server to get original email
+        import imaplib
+        import os
+        from dotenv import load_dotenv
+        
+        load_dotenv()
+        
+        # IMAP connection
+        imap_server = os.getenv('IMAP_SERVER', 'imap.gmail.com')
+        imap_port = int(os.getenv('IMAP_PORT', 993))
+        email_user = os.getenv('GMAIL_USER')
+        email_pass = os.getenv('GMAIL_APP_PASSWORD')
+        
+        if not email_user or not email_pass:
+            flash('Email credentials not configured', 'error')
+            return download_eml_fallback(ticket, latest_email)
+        
+        # Connect to IMAP
+        mail = imaplib.IMAP4_SSL(imap_server, imap_port)
+        mail.login(email_user, email_pass)
+        mail.select('inbox')
+        
+        # Search for the email by Message-ID
+        search_criteria = f'HEADER Message-ID "{message_id}"'
+        status, messages = mail.search(None, search_criteria)
+        
+        if status != 'OK' or not messages[0]:
+            mail.logout()
+            flash('Original email not found on server', 'warning')
+            return download_eml_fallback(ticket, latest_email)
+        
+        # Get the email
+        email_id = messages[0].split()[-1]
+        status, msg_data = mail.fetch(email_id, '(RFC822)')
+        
+        if status != 'OK':
+            mail.logout()
+            flash('Failed to fetch original email', 'error')
+            return download_eml_fallback(ticket, latest_email)
+        
+        # Get the raw email content and parse it
+        raw_email = msg_data[0][1]
+        mail.logout()
+        
+        # Parse the email to modify headers for proper Outlook display
+        import email as email_lib
+        msg = email_lib.message_from_bytes(raw_email)
+        
+        # Preserve all original headers but ensure proper From/To perspective
+        original_from = msg.get('From', '')
+        original_to = msg.get('To', '')
+        original_cc = msg.get('Cc', '')
+        original_bcc = msg.get('Bcc', '')
+        original_reply_to = msg.get('Reply-To', '')
+        
+        # Set tebstrack@gmail.com as the recipient (shows in From field when viewing)
+        tebstrack_email = 'tebstrack@gmail.com'
+        tebs_infra_email = 'tebs_infra@gmail.com'
+        
+        # Clean up any CSS artifacts from HTML processing
+        def clean_email_content(part):
+            if part.get_content_type() == 'text/html':
+                content = part.get_payload(decode=True)
+                if content:
+                    try:
+                        charset = part.get_content_charset() or 'utf-8'
+                        html_content = content.decode(charset, errors='replace')
+                        # Remove CSS artifacts like "P {margin-top:0;margin-bottom:0;}"
+                        import re
+                        html_content = re.sub(r'P\s*\{[^}]*\}', '', html_content, flags=re.IGNORECASE)
+                        html_content = re.sub(r'[A-Z]\s*\{[^}]*\}', '', html_content, flags=re.IGNORECASE)
+                        # Remove standalone CSS properties
+                        html_content = re.sub(r'margin-[a-z]+:\s*\d+[^;]*;?', '', html_content, flags=re.IGNORECASE)
+                        part.set_payload(html_content.encode(charset))
+                    except Exception:
+                        pass
+        
+        # Clean content in all parts
+        if msg.is_multipart():
+            for part in msg.walk():
+                clean_email_content(part)
+        else:
+            clean_email_content(msg)
+        
+        # Replace headers to show proper perspective for Outlook viewing
+        # When viewing in Outlook, we want to show the email as it was actually sent:
+        # From: The actual sender (preserve original)
+        # To: The original recipients (preserve unless tebstrack was the sender)
+        
+        tebstrack_emails = ['tebstrack@gmail.com', 'tebs_infra@totalebizsolutions.com']
+        
+        # Keep the original From as is (the actual sender)
+        # Don't change it - that's correct now
+        
+        # Only clean the To field if tebstrack was the sender (in From field)
+        # This means tebstrack sent an email, so we should remove tebstrack from To
+        tebstrack_was_sender = any(teb_email.lower() in original_from.lower() for teb_email in tebstrack_emails)
+        
+        if tebstrack_was_sender and original_to:
+            # tebstrack was the sender, so remove tebstrack emails from To field
+            to_addresses = [addr.strip() for addr in original_to.split(',')]
+            filtered_addresses = []
+            for addr in to_addresses:
+                # Check if this address contains any tebstrack email
+                is_tebstrack = any(teb_email.lower() in addr.lower() for teb_email in tebstrack_emails)
+                if not is_tebstrack:
+                    filtered_addresses.append(addr)
+            
+            cleaned_to = ', '.join(filtered_addresses) if filtered_addresses else ''
+            if cleaned_to:
+                if 'To' in msg:
+                    msg.replace_header('To', cleaned_to)
+                else:
+                    msg['To'] = cleaned_to
+            else:
+                # If no valid To addresses remain, remove the To header
+                if 'To' in msg:
+                    del msg['To']
+        else:
+            # tebstrack was the recipient, so preserve the To field as is
+            # This is the normal case where someone sent TO tebstrack
+            pass  # Keep original To field unchanged
+        
+        # Set Reply-To header to ensure replies go to tebstrack
+        # Priority: tebstrack@gmail.com, then tebs_infra@totalebizsolutions.com
+        reply_to_email = 'tebstrack@gmail.com'
+        if original_to and 'tebs_infra@totalebizsolutions.com' in original_to.lower():
+            reply_to_email = 'tebs_infra@totalebizsolutions.com'
+        
+        # Configure headers for proper "Reply All" behavior in Outlook
+        # When user clicks "Reply All" in Outlook:
+        # - To field should contain original sender + other non-tebstrack recipients
+        # - CC field should contain original CC recipients (excluding tebstrack)
+        # - tebstrack emails should never appear in To/CC of the reply
+        
+        # Set Reply-To to the appropriate tebstrack email for replies
+        if 'Reply-To' in msg:
+            msg.replace_header('Reply-To', reply_to_email)
+        else:
+            msg['Reply-To'] = reply_to_email
+        
+        # Add Return-Path for better email client handling
+        if 'Return-Path' in msg:
+            msg.replace_header('Return-Path', f'<{reply_to_email}>')
+        else:
+            msg['Return-Path'] = f'<{reply_to_email}>'
+        
+        # Set up headers to ensure Outlook's Reply All excludes tebstrack from To/CC
+        # We need to manipulate the perspective so tebstrack appears as the "receiver"
+        # not as a participant in the conversation
+        
+        # Clean CC field if it exists - remove tebstrack emails from CC
+        if original_cc:
+            cc_addresses = [addr.strip() for addr in original_cc.split(',')]
+            filtered_cc = []
+            for addr in cc_addresses:
+                is_tebstrack = any(teb_email.lower() in addr.lower() for teb_email in ['tebstrack@gmail.com', 'tebs_infra@totalebizsolutions.com'])
+                if not is_tebstrack:
+                    filtered_cc.append(addr)
+            
+            cleaned_cc = ', '.join(filtered_cc) if filtered_cc else ''
+            if cleaned_cc:
+                if 'Cc' in msg:
+                    msg.replace_header('Cc', cleaned_cc)
+                else:
+                    msg['Cc'] = cleaned_cc
+            else:
+                # Remove CC header if only tebstrack emails were there
+                if 'Cc' in msg:
+                    del msg['Cc']
+        
+        # Add custom headers to help email clients understand the reply structure
+        msg['X-Original-Sender'] = original_from
+        msg['X-TeBSTrack-Recipient'] = reply_to_email
+        
+        # Preserve BCC if they exist, but clean out tebstrack emails
+        if original_bcc:
+            bcc_addresses = [addr.strip() for addr in original_bcc.split(',')]
+            filtered_bcc = []
+            for addr in bcc_addresses:
+                is_tebstrack = any(teb_email.lower() in addr.lower() for teb_email in ['tebstrack@gmail.com', 'tebs_infra@totalebizsolutions.com'])
+                if not is_tebstrack:
+                    filtered_bcc.append(addr)
+            
+            cleaned_bcc = ', '.join(filtered_bcc) if filtered_bcc else ''
+            if cleaned_bcc:
+                if 'Bcc' in msg:
+                    msg.replace_header('Bcc', cleaned_bcc)
+                else:
+                    msg['Bcc'] = cleaned_bcc
+            else:
+                # Remove BCC header if only tebstrack emails were there
+                if 'Bcc' in msg:
+                    del msg['Bcc']
+        
+        # Convert back to bytes
+        modified_email = msg.as_bytes()
+        
+        # Create response with modified email
+        response = make_response(modified_email)
+        response.headers['Content-Type'] = 'message/rfc822'
+        response.headers['Content-Disposition'] = f'attachment; filename="original_ticket_{ticket.id}.eml"'
+        
+        return response
+        
+    except Exception as e:
+        logging.error(f"Failed to fetch original email: {e}")
+        flash('Could not access original email from server', 'error')
+        return download_eml_fallback(ticket, latest_email)
+
+
+def download_eml_fallback(ticket, latest_email=None):
+    """Fallback EML creation when original email is not accessible"""
+    # Use latest email data or fall back to ticket data
+    if latest_email:
+        subject = latest_email.subject
+        body = latest_email.body
+        sender = latest_email.sender
+        date = latest_email.sent_at.strftime('%a, %d %b %Y %H:%M:%S %z') if latest_email.sent_at else 'Unknown'
+        message_id = latest_email.message_id or f"<tebstrack-{ticket.id}@tebstrack>"
+    else:
+        subject = ticket.subject
+        body = ticket.description
+        sender = ticket.sender
+        date = ticket.created_at.strftime('%a, %d %b %Y %H:%M:%S %z') if ticket.created_at else 'Unknown'
+        message_id = f"<tebstrack-{ticket.id}@tebstrack>"
+    
+    # Clean body content from CSS artifacts
+    import re
+    if body:
+        # Remove CSS artifacts like "P {margin-top:0;margin-bottom:0;}"
+        body = re.sub(r'P\s*\{[^}]*\}', '', body, flags=re.IGNORECASE)
+        body = re.sub(r'[A-Z]\s*\{[^}]*\}', '', body, flags=re.IGNORECASE)
+        # Remove standalone CSS properties
+        body = re.sub(r'margin-[a-z]+:\s*\d+[^;]*;?', '', body, flags=re.IGNORECASE)
+        # Remove any stray CSS fragments
+        body = re.sub(r'\{[^}]*\}', '', body)
+        body = body.strip()
+    
+    # Create EML content with proper headers and reply configuration
+    # From shows the actual sender, To shows original recipients (cleaned appropriately)
+    # Headers configured for proper "Reply All" behavior in Outlook
+    
+    # Determine appropriate Reply-To address
+    reply_to_email = 'tebstrack@gmail.com'
+    if 'tebs_infra@totalebizsolutions.com' in str(latest_email.to_addresses if latest_email else ''):
+        reply_to_email = 'tebs_infra@totalebizsolutions.com'
+    
+    # For fallback, we typically don't have the original recipient details
+    # so we'll create a basic structure that ensures proper Reply All behavior
+    to_field = ''
+    if latest_email and hasattr(latest_email, 'to_addresses') and latest_email.to_addresses:
+        # Clean tebstrack emails from To field for Reply All purposes
+        to_addresses = [addr.strip() for addr in latest_email.to_addresses.split(',')]
+        filtered_to = []
+        for addr in to_addresses:
+            is_tebstrack = any(teb_email.lower() in addr.lower() for teb_email in ['tebstrack@gmail.com', 'tebs_infra@totalebizsolutions.com'])
+            if not is_tebstrack:
+                filtered_to.append(addr)
+        
+        if filtered_to:
+            to_field = f"To: {', '.join(filtered_to)}\n"
+    
+    eml_content = f"""From: {sender}
+{to_field}Reply-To: {reply_to_email}
+Return-Path: <{reply_to_email}>
+X-Original-Sender: {sender}
+X-TeBSTrack-Recipient: {reply_to_email}
+Subject: {subject}
+Date: {date}
+Message-ID: {message_id}
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{subject}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; margin: 0; padding: 20px; }}
+        .email-content {{ max-width: 800px; margin: 0 auto; }}
+    </style>
+</head>
+<body>
+    <div class="email-content">
+        {body.replace(chr(10), '<br>') if body else ''}
+    </div>
+</body>
+</html>
+"""
+    
+    # Create response
+    response = make_response(eml_content)
+    response.headers['Content-Type'] = 'message/rfc822'
+    response.headers['Content-Disposition'] = f'attachment; filename="ticket_{ticket.id}.eml"'
+    
+    return response

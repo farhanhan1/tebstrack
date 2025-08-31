@@ -34,14 +34,42 @@
 }
 </style>
     </table>
-    {% if current_user.role == 'admin' %}
-    <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.6rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s; margin-top:1.2rem;">Save</button>
-    {% elif current_user.role == 'infra' %}
-    <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.6rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s; margin-top:1.2rem;">Save</button>
-    {% endif %}
+    
+    <!-- Button Group -->
+    <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1.2rem;">
+      {% if current_user.role == 'admin' %}
+      <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.6rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Save</button>
+      {% elif current_user.role == 'infra' %}
+      <button type="submit" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:0.6rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(37,99,235,0.08); cursor:pointer; transition:background 0.2s;">Save</button>
+      {% endif %}
+      
+      <!-- Open in Outlook Button -->
+      <button type="button" onclick="openInOutlook()" style="background:#0078d4; color:#fff; border:none; border-radius:6px; padding:0.6rem 1.5rem; font-weight:700; font-size:1.08rem; box-shadow:0 1px 4px rgba(0,120,212,0.08); cursor:pointer; transition:background 0.2s;">
+        📧 Open Original Email
+      </button>
+    </div>
     
   </div>
 </form>
+
+<script>
+function openInOutlook() {
+    // Create a direct download link for the EML file
+    const link = document.createElement('a');
+    link.href = `/open_in_outlook/{{ ticket.id }}`;
+    link.download = `ticket_{{ ticket.id }}.eml`;
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Show success message
+    setTimeout(() => {
+        alert('Original email downloaded! It contains all images and attachments. Double-click the file to open in Outlook.');
+    }, 500);
+}
+</script>
 
 <!-- AI-Powered Components Section -->
 {% include 'ai_components.html' %}
