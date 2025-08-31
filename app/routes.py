@@ -127,20 +127,30 @@ def favicon():
 @main.route('/settings', methods=['GET'])
 @login_required
 def settings():
-    from app.models import UserSettings
+    from app.models import UserSettings, SystemSettings
     # Get user settings for all users
     user_settings = UserSettings.get_user_settings(current_user.id)
     
-    # Only admin can manage categories
+    # Only admin can manage categories and system settings
     if current_user.role != 'admin':
         all_categories = []
+        system_settings = {}
     else:
         all_categories = Category.query.order_by(Category.name).all()
+        # Get system settings for admin
+        env_key = os.getenv('OPENAI_API_KEY', '')
+        custom_key = SystemSettings.get_setting('openai_api_key', '')
+        system_settings = {
+            'openai_api_key': custom_key,
+            'using_env_key': not bool(custom_key),
+            'env_api_key': env_key
+        }
     
     return render_template('settings.html', 
                          all_categories=all_categories, 
                          current_user=current_user,
-                         user_settings=user_settings)
+                         user_settings=user_settings,
+                         system_settings=system_settings)
 
 @main.route('/update_pagination_settings', methods=['POST'])
 @login_required
@@ -170,6 +180,79 @@ def update_pagination_settings():
     else:
         flash('Pagination disabled successfully!', 'success')
     return redirect(url_for('main.settings'))
+
+@main.route('/update_openai_api_key', methods=['POST'])
+@login_required 
+def update_openai_api_key():
+    from app.models import SystemSettings, Log
+    from app.ai_service import reset_ai_service
+    
+    # Only admin can update system settings
+    if current_user.role != 'admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('main.settings'))
+    
+    try:
+        api_key = request.form.get('openai_api_key', '').strip()
+        use_env_key = request.form.get('use_env_key') == 'on'
+        
+        if use_env_key:
+            # Remove custom API key to fall back to environment variable
+            setting = SystemSettings.query.filter_by(setting_key='openai_api_key').first()
+            if setting:
+                db.session.delete(setting)
+                db.session.commit()
+            
+            # Reset AI service to pick up new settings
+            reset_ai_service()
+            
+            # Log the action
+            log = Log(
+                user=current_user.username,
+                action='OpenAI API Key Updated',
+                details='Switched to using environment variable for OpenAI API key'
+            )
+            db.session.add(log)
+            db.session.commit()
+            
+            flash('Successfully switched to using environment variable for OpenAI API key!', 'success')
+        else:
+            if not api_key:
+                flash('Please provide an API key or select "Use Environment Variable".', 'error')
+                return redirect(url_for('main.settings'))
+            
+            # Basic validation - OpenAI keys typically start with 'sk-'
+            if not api_key.startswith('sk-'):
+                flash('Invalid API key format. OpenAI API keys typically start with "sk-".', 'error')
+                return redirect(url_for('main.settings'))
+            
+            # Store custom API key
+            SystemSettings.set_setting(
+                'openai_api_key', 
+                api_key,
+                'Custom OpenAI API key for TeBSTrack AI services'
+            )
+            
+            # Reset AI service to pick up new API key
+            reset_ai_service()
+            
+            # Log the action (mask the key in logs)
+            masked_key = api_key[:8] + '*' * (len(api_key) - 12) + api_key[-4:] if len(api_key) > 12 else 'sk-***'
+            log = Log(
+                user=current_user.username,
+                action='OpenAI API Key Updated', 
+                details=f'Updated OpenAI API key (ending in ...{api_key[-4:] if len(api_key) >= 4 else "***"})'
+            )
+            db.session.add(log)
+            db.session.commit()
+            
+            flash('OpenAI API key updated successfully!', 'success')
+        
+        return redirect(url_for('main.settings'))
+        
+    except Exception as e:
+        flash(f'Error updating API key: {str(e)}', 'error')
+        return redirect(url_for('main.settings'))
 
 @main.route('/add_category', methods=['POST'])
 @login_required

@@ -123,6 +123,70 @@
       </div>
     </form>
   </div>
+
+  <!-- OpenAI API Key Management (admin only) -->
+  <div style="padding: 1.5rem; background: #fef3c7; border-radius: 12px; border: 1px solid #fbbf24; margin-top: 2rem;">
+    <h2 style="color: #92400e; font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem;">🔑 OpenAI API Key Management</h2>
+    
+    <!-- Current API Key Status -->
+    <div style="background: #ffffff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #d1d5db;">
+      <div style="margin-bottom: 1rem;">
+        <span style="font-weight: 600; color: #374151;">Current API Key Source:</span>
+        <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; font-weight: 500; 
+              {% if system_settings.using_env_key %}background: #dcfce7; color: #166534;{% else %}background: #dbeafe; color: #1e40af;{% endif %}">
+          {% if system_settings.using_env_key %}Environment Variable{% else %}Custom API Key{% endif %}
+        </span>
+      </div>
+      
+      <!-- Current API Key Display (always show) -->
+      <div style="margin-bottom: 1rem;">
+        <span style="font-weight: 600; color: #374151;">Current API Key:</span>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+          <input type="text" id="current-api-key" readonly 
+                 data-full-key="{% if system_settings.using_env_key %}{{ system_settings.env_api_key }}{% else %}{{ system_settings.openai_api_key }}{% endif %}"
+                 value="{% if system_settings.using_env_key %}{{ system_settings.env_api_key }}{% else %}{{ system_settings.openai_api_key }}{% endif %}"
+                 style="font-family: monospace; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0.5rem; width: 350px; color: #4b5563;">
+          <button type="button" onclick="toggleApiKeyVisibility()" style="background: #6b7280; color: #fff; border: none; border-radius: 4px; padding: 0.5rem; cursor: pointer; display: flex; align-items: center;">
+            <span id="eye-icon">👁️</span>
+          </button>
+        </div>
+        <div style="font-size: 0.8rem; color: #6b7280; margin-top: 0.5rem;">
+          Source: {% if system_settings.using_env_key %}Environment Variable (.env){% else %}Custom API Key{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- API Key Configuration Form -->
+    <form method="post" action="{{ url_for('main.update_openai_api_key') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #374151; cursor: pointer; margin-bottom: 1rem;">
+          <input type="checkbox" name="use_env_key" {% if system_settings.using_env_key %}checked{% endif %} 
+                 onchange="toggleApiKeyInput(this)"
+                 style="width: 1.2rem; height: 1.2rem; border-radius: 4px; border: 2px solid #d1d5db; accent-color: #f59e0b;">
+          Use Environment Variable (.env file)
+        </label>
+        
+        <div id="custom-api-key-section" style="{% if system_settings.using_env_key %}display: none;{% endif %}">
+          <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Custom OpenAI API Key:</label>
+          <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem;">
+            Enter your OpenAI API key. This will override the environment variable setting.
+          </div>
+          <input type="text" name="openai_api_key" id="new-api-key"
+                 placeholder="sk-..."
+                 style="width: 93%; padding: 0.75rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; font-family: monospace; background: #fff; color: #2d3a4b;">
+          <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #6b7280;">
+            💡 API keys typically start with "sk-" and are 51 characters long
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" style="background: #f59e0b; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.5rem; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; box-shadow: 0 1px 4px rgba(245,158,11,0.08);">
+        🔑 Update API Key
+      </button>
+    </form>
+  </div>
   {% endif %}
 </div>
 
@@ -319,6 +383,57 @@ function resetKnowledgeBase() {
   }
 }
 
+// API Key Management Functions
+function toggleApiKeyVisibility() {
+  const keyInput = document.getElementById('current-api-key');
+  const eyeIcon = document.getElementById('eye-icon');
+  const fullKey = keyInput.getAttribute('data-full-key');
+  
+  console.log('Toggle API Key - Full Key:', fullKey ? fullKey.substring(0, 8) + '...' : 'None');
+  console.log('Toggle API Key - Current Value:', keyInput.value);
+  
+  if (!fullKey) {
+    console.log('No full key found');
+    return; // No key to show
+  }
+  
+  // Check if currently showing full key by comparing values
+  const isShowingFull = keyInput.value === fullKey;
+  console.log('Is showing full key:', isShowingFull);
+  
+  if (!isShowingFull) {
+    // Currently masked, show full key
+    keyInput.value = fullKey;
+    eyeIcon.textContent = '🙈';
+    keyInput.setAttribute('data-showing-full', 'true');
+    console.log('Switched to showing full key');
+  } else {
+    // Currently showing full key, mask it
+    if (fullKey.length > 12) {
+      const masked = fullKey.substring(0, 8) + '***********' + fullKey.substring(fullKey.length - 4);
+      keyInput.value = masked;
+    } else {
+      keyInput.value = '*'.repeat(fullKey.length);
+    }
+    eyeIcon.textContent = '👁️';
+    keyInput.setAttribute('data-showing-full', 'false');
+    console.log('Switched to showing masked key');
+  }
+}
+
+function toggleApiKeyInput(checkbox) {
+  const customSection = document.getElementById('custom-api-key-section');
+  const newApiKeyInput = document.getElementById('new-api-key');
+  
+  if (checkbox.checked) {
+    customSection.style.display = 'none';
+    newApiKeyInput.required = false;
+  } else {
+    customSection.style.display = 'block';
+    newApiKeyInput.required = true;
+  }
+}
+
 // Auto-load knowledge base status when page loads
 document.addEventListener('DOMContentLoaded', function() {
   // Existing pagination code...
@@ -326,6 +441,22 @@ document.addEventListener('DOMContentLoaded', function() {
   // Check if we're on settings page and user is admin
   if (document.getElementById('kb-status')) {
     checkKnowledgeBaseStatus();
+  }
+  
+  // Set up API key display
+  const currentKeyInput = document.getElementById('current-api-key');
+  if (currentKeyInput && currentKeyInput.value) {
+    const fullKey = currentKeyInput.getAttribute('data-full-key');
+    if (fullKey && fullKey.length > 12) {
+      // Initialize with masked view
+      const masked = fullKey.substring(0, 8) + '***********' + fullKey.substring(fullKey.length - 4);
+      currentKeyInput.value = masked;
+      currentKeyInput.setAttribute('data-showing-full', 'false');
+    } else if (fullKey) {
+      // For shorter keys, mask completely
+      currentKeyInput.value = '*'.repeat(fullKey.length);
+      currentKeyInput.setAttribute('data-showing-full', 'false');
+    }
   }
 });
 </script>

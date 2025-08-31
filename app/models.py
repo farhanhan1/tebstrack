@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime
 from datetime import datetime
 from flask_login import UserMixin
 import json
+import os
 
 db = SQLAlchemy()
 
@@ -67,6 +68,51 @@ class UserSettings(db.Model):
             db.session.add(settings)
             db.session.commit()
         return settings
+
+
+class SystemSettings(db.Model):
+    """System-wide settings for TeBSTrack"""
+    id = db.Column(db.Integer, primary_key=True)
+    setting_key = db.Column(db.String(100), unique=True, nullable=False)
+    setting_value = db.Column(db.Text, nullable=True)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @classmethod
+    def get_setting(cls, key, default=None):
+        """Get a system setting value"""
+        setting = cls.query.filter_by(setting_key=key).first()
+        return setting.setting_value if setting else default
+    
+    @classmethod
+    def set_setting(cls, key, value, description=None):
+        """Set a system setting value"""
+        setting = cls.query.filter_by(setting_key=key).first()
+        if setting:
+            setting.setting_value = value
+            setting.updated_at = datetime.utcnow()
+            if description:
+                setting.description = description
+        else:
+            setting = cls(
+                setting_key=key,
+                setting_value=value,
+                description=description
+            )
+            db.session.add(setting)
+        db.session.commit()
+        return setting
+    
+    @classmethod
+    def get_openai_api_key(cls):
+        """Get the OpenAI API key from settings or environment"""
+        # First check if custom API key is set in system settings
+        custom_key = cls.get_setting('openai_api_key')
+        if custom_key:
+            return custom_key
+        # Fall back to environment variable
+        return os.getenv('OPENAI_API_KEY')
 
 
 class Log(db.Model):

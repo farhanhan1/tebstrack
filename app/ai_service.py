@@ -13,7 +13,10 @@ from .models import Category, db
 
 class TeBSTrackAI:
     def __init__(self):
-        self.client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        # Get API key from system settings or environment
+        from .models import SystemSettings
+        api_key = SystemSettings.get_openai_api_key()
+        self.client = openai.OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"  # Cost-effective for categorization
         self.knowledge_base = self._load_knowledge_base()
         
@@ -865,9 +868,17 @@ INFRA TEAM CONTEXT-AWARE MODE:
 
 INFRA TEAM HELP MODE: Provide clear, helpful answers about TeBSTrack features and infrastructure team workflow. Actively use the KNOWLEDGE BASE to answer questions about procedures, troubleshooting, and solutions. Help infra team members manage tickets and resolve user requests efficiently using documented guidance."""
 
-# Initialize AI service
-ai_service = TeBSTrackAI()
+# Global AI service instance (lazy-loaded)
+_ai_service = None
 
 def get_ai_service():
-    """Get the global AI service instance."""
-    return ai_service
+    """Get the global AI service instance (lazy-loaded)."""
+    global _ai_service
+    if _ai_service is None:
+        _ai_service = TeBSTrackAI()
+    return _ai_service
+
+def reset_ai_service():
+    """Reset the AI service instance (useful when API key changes)."""
+    global _ai_service
+    _ai_service = None
