@@ -1303,6 +1303,28 @@ def get_knowledge_content():
         return jsonify({'error': f'Failed to get knowledge content: {str(e)}'}), 500
 
 
+@main.route('/api/ai/get-knowledge-status')
+@login_required
+def get_knowledge_status():
+    """Get current knowledge base status and source information"""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    try:
+        from .ai_service import get_ai_service
+        ai_service = get_ai_service()
+        
+        status = ai_service.get_knowledge_base_status()
+        return jsonify({
+            'success': True,
+            'status': status
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting knowledge status: {e}")
+        return jsonify({'error': f'Failed to get knowledge status: {str(e)}'}), 500
+
+
 @main.route('/main/update_knowledge_base', methods=['POST'])
 @login_required
 def update_knowledge_base():

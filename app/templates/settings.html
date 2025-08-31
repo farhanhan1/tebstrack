@@ -92,6 +92,7 @@
         <button onclick="checkKnowledgeBaseStatus()" style="background: #6b7280; color: #fff; border: none; border-radius: 4px; padding: 0.3rem 0.8rem; font-size: 0.85rem; cursor: pointer;">Refresh</button>
       </div>
       <div id="kb-status-content" style="color: #6b7280; font-style: italic;">Click refresh to check status...</div>
+      <div id="kb-source-path" style="margin-top: 0.5rem; font-size: 0.85rem; color: #4b5563; font-family: monospace; background: #f9fafb; padding: 0.5rem; border-radius: 4px; border: 1px solid #e5e7eb;"></div>
     </div>
 
     <!-- Knowledge Base Editor -->
@@ -220,33 +221,52 @@ document.addEventListener('DOMContentLoaded', function() {
 // Knowledge Base Management Functions
 function checkKnowledgeBaseStatus() {
   const statusContent = document.getElementById('kb-status-content');
-  statusContent.innerHTML = '<span style="color: #6b7280;">🔄 Checking status...</span>';
+  const sourcePathDiv = document.getElementById('kb-source-path');
   
-  fetch('/api/ai/knowledge-status')
+  statusContent.innerHTML = '<span style="color: #6b7280;">🔄 Checking status...</span>';
+  sourcePathDiv.innerHTML = '';
+  
+  fetch('/api/ai/get-knowledge-status')
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        const kb = data.knowledge_base;
+        const status = data.status;
         statusContent.innerHTML = `
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-            <div><strong>Status:</strong> ${kb.loaded ? '✅ Loaded' : '❌ Failed'}</div>
-            <div><strong>Content:</strong> ${kb.content_length} characters</div>
-            <div><strong>Source:</strong> ${kb.has_document ? '📄 Document' : '⚠️ Fallback'}</div>
+            <div><strong>Status:</strong> ${status.loaded ? '✅ Loaded' : '❌ Failed'}</div>
+            <div><strong>Content:</strong> ${status.content_length} characters</div>
+            <div><strong>Type:</strong> ${getSourceTypeDisplay(status.source_type)}</div>
           </div>
           <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
-            <strong>Preview:</strong> ${kb.preview}
+            <strong>Preview:</strong> ${status.preview}
           </div>
         `;
+        
+        // Show the source path
+        sourcePathDiv.innerHTML = `<strong>Source:</strong> ${status.source_path}`;
         
         // Load the current knowledge base content into the textarea
         loadKnowledgeBaseContent();
       } else {
         statusContent.innerHTML = `<span style="color: #dc2626;">❌ Error: ${data.error}</span>`;
+        sourcePathDiv.innerHTML = '';
       }
     })
     .catch(error => {
-      statusContent.innerHTML = `<span style="color: #dc2626;">❌ Failed to check: ${error}</span>`;
+      statusContent.innerHTML = `<span style="color: #dc2626;">❌ Failed to check status: ${error}</span>`;
+      sourcePathDiv.innerHTML = '';
     });
+}
+
+function getSourceTypeDisplay(sourceType) {
+  const typeMap = {
+    'edited_text_copy': '✏️ Edited Copy',
+    'edited_document_copy': '✏️ Edited Document',
+    'custom_text': '📝 Custom Text',
+    'original_document': '📄 Original Document',
+    'fallback_content': '⚠️ Fallback Content'
+  };
+  return typeMap[sourceType] || '❓ Unknown';
 }
 
 function loadKnowledgeBaseContent() {

@@ -165,13 +165,84 @@ class TeBSTrackAI:
     def get_knowledge_base_status(self) -> Dict[str, any]:
         """Get information about the knowledge base loading status"""
         kb_length = len(self.knowledge_base) if self.knowledge_base else 0
-        is_fallback = "Infrastructure Knowledge Base:" in self.knowledge_base and kb_length < 2000
+        
+        # Determine which file is currently being used
+        current_source_path = None
+        source_type = "unknown"
+        
+        # Check for edited text copy first (highest priority)
+        text_copy_paths = [
+            'app/knowledge/infra_guide_edited.txt',
+            'knowledge/infra_guide_edited.txt'
+        ]
+        
+        for path in text_copy_paths:
+            if os.path.exists(path):
+                current_source_path = path
+                source_type = "edited_text_copy"
+                break
+        
+        # Check for edited document copy
+        if not current_source_path:
+            copy_paths = [
+                'app/knowledge/infra_guide_edited.docx',
+                'app/knowledge/infra_guide_edited.pdf',
+                'knowledge/infra_guide_edited.docx',
+                'knowledge/infra_guide_edited.pdf'
+            ]
+            
+            for path in copy_paths:
+                if os.path.exists(path):
+                    current_source_path = path
+                    source_type = "edited_document_copy"
+                    break
+        
+        # Check for custom text knowledge
+        if not current_source_path:
+            custom_paths = [
+                'app/knowledge/custom_knowledge.txt',
+                'knowledge/custom_knowledge.txt'
+            ]
+            
+            for path in custom_paths:
+                if os.path.exists(path):
+                    current_source_path = path
+                    source_type = "custom_text"
+                    break
+        
+        # Check for original document
+        if not current_source_path:
+            original_paths = [
+                'app/knowledge/infra_guide.docx',
+                'app/knowledge/infra_guide.pdf',
+                'knowledge/infra_guide.docx',
+                'knowledge/infra_guide.pdf'
+            ]
+            
+            for path in original_paths:
+                if os.path.exists(path):
+                    current_source_path = path
+                    source_type = "original_document"
+                    break
+        
+        # Fallback case
+        if not current_source_path:
+            source_type = "fallback_content"
+            current_source_path = "Built-in fallback content (no files found)"
+        
+        # Check if using fallback content
+        is_fallback = "Emergency Mode" in self.knowledge_base if self.knowledge_base else True
+        if is_fallback and source_type != "fallback_content":
+            source_type = "fallback_content"
+            current_source_path = "Built-in fallback content"
         
         return {
             "loaded": bool(self.knowledge_base),
             "content_length": kb_length,
+            "source_type": source_type,
+            "source_path": current_source_path,
             "is_fallback_content": is_fallback,
-            "has_document": not is_fallback,
+            "has_document": source_type in ["original_document", "edited_document_copy"],
             "preview": self.knowledge_base[:200] + "..." if self.knowledge_base else "No knowledge base loaded"
         }
     
