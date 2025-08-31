@@ -21,6 +21,24 @@ class TeBSTrackAI:
         try:
             from .document_loader import DocumentLoader
             
+            # Try to load custom knowledge first
+            custom_paths = [
+                'app/knowledge/custom_knowledge.txt',
+                'knowledge/custom_knowledge.txt'
+            ]
+            
+            for path in custom_paths:
+                if os.path.exists(path):
+                    try:
+                        with open(path, 'r', encoding='utf-8') as f:
+                            content = f.read().strip()
+                            if content:
+                                logging.info(f"Loaded custom knowledge base from {path}")
+                                return content
+                    except Exception as e:
+                        logging.warning(f"Failed to load custom knowledge from {path}: {e}")
+                        continue
+            
             # Try to load knowledge document
             knowledge_paths = [
                 'app/knowledge/infra_guide.pdf',
@@ -34,6 +52,7 @@ class TeBSTrackAI:
                     try:
                         content = DocumentLoader.load_knowledge_document(path)
                         if content:
+                            logging.info(f"Loaded knowledge base from document {path}")
                             return content
                     except Exception as e:
                         logging.warning(f"Failed to load {path}: {e}")
@@ -42,6 +61,7 @@ class TeBSTrackAI:
             logging.warning("DocumentLoader not available")
         
         # Fallback knowledge base content
+        logging.info("Using fallback knowledge base content")
         return """
         TeBSTrack Infrastructure Ticketing System Knowledge Base:
         
@@ -103,6 +123,58 @@ class TeBSTrackAI:
         """Get current categories from database"""
         categories = Category.query.all()
         return [cat.name for cat in categories]
+    
+    def get_knowledge_base_status(self) -> Dict[str, any]:
+        """Get information about the knowledge base loading status"""
+        kb_length = len(self.knowledge_base) if self.knowledge_base else 0
+        is_fallback = "Infrastructure Knowledge Base:" in self.knowledge_base and kb_length < 2000
+        
+        return {
+            "loaded": bool(self.knowledge_base),
+            "content_length": kb_length,
+            "is_fallback_content": is_fallback,
+            "has_document": not is_fallback,
+            "preview": self.knowledge_base[:200] + "..." if self.knowledge_base else "No knowledge base loaded"
+        }
+    
+    def test_knowledge_base_integration(self, test_question: str = "How do I reset a user's VPN access?") -> str:
+        """Test the knowledge base integration with a sample question"""
+        try:
+            response = self.chatbot_response(
+                user_message=test_question,
+                ticket_context=None,
+                user_context={"username": "test_user", "role": "infra"}
+            )
+            return response
+        except Exception as e:
+            return f"Knowledge base test failed: {e}"
+    
+    def refresh_knowledge_base(self) -> bool:
+        """Reload the knowledge base from files"""
+        try:
+            old_kb_length = len(self.knowledge_base) if self.knowledge_base else 0
+            self.knowledge_base = self._load_knowledge_base()
+            new_kb_length = len(self.knowledge_base) if self.knowledge_base else 0
+            
+            logging.info(f"Knowledge base refreshed: {old_kb_length} -> {new_kb_length} characters")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to refresh knowledge base: {e}")
+            return False
+    
+    def update_knowledge_base(self, new_content: str) -> bool:
+        """Update the knowledge base content in memory"""
+        try:
+            if not new_content or not new_content.strip():
+                logging.warning("Attempted to set empty knowledge base content")
+                return False
+                
+            self.knowledge_base = new_content.strip()
+            logging.info(f"Knowledge base updated in memory: {len(self.knowledge_base)} characters")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to update knowledge base: {e}")
+            return False
     
     def categorize_ticket(self, subject: str, body: str, sender: str = "") -> Dict[str, any]:
         """
@@ -326,21 +398,27 @@ IMPORTANT: This ticket was automatically created from an email sent to the infra
         # Build system prompt based on intent
         system_prompt = self._build_chatbot_system_prompt(user_message, ticket_context is not None, intent, user_context)
         
-        # Build the user prompt
+        # Build the user prompt with knowledge base integration
         if intent['needs_ticket_details']:
             user_prompt = f"""
 {context_info}
 
+KNOWLEDGE BASE REFERENCE:
+{self.knowledge_base}
+
 USER QUESTION: {user_message}
 
-Using the complete ticket context above, provide an informative and helpful response. Include relevant details from the ticket information to fully answer the question."""
+Using the complete ticket context above AND the knowledge base information, provide an informative and helpful response. Reference the knowledge base to suggest specific solutions, procedures, or troubleshooting steps when relevant to the ticket category and user's question."""
         else:
             user_prompt = f"""
 {context_info}
 
+KNOWLEDGE BASE REFERENCE:
+{self.knowledge_base}
+
 USER QUESTION: {user_message}
 
-Provide a helpful response using any relevant context available."""
+Provide a helpful response using the knowledge base information and any relevant context available. Reference specific procedures, solutions, or guidelines from the knowledge base when applicable."""
 
         try:
             # Significantly increased token limits for comprehensive, detailed responses
@@ -500,6 +578,13 @@ TeBSTrack is an infrastructure team ticketing system where:
 - Infra team members (TeBSTrack users) view, track, and resolve these tickets
 - You assist infra team members in managing their workflow
 
+KNOWLEDGE BASE USAGE:
+- You have access to a comprehensive infrastructure knowledge base
+- ALWAYS reference the knowledge base when answering questions about procedures, solutions, or troubleshooting
+- Provide specific guidance from the knowledge base for different ticket categories
+- When users ask "how to" questions, refer to documented procedures
+- For technical issues, suggest knowledge base solutions and troubleshooting steps
+
 USER CONTEXT:
 - TeBSTrack users are infra team members responsible for resolving tickets
 - Ticket requesters are external users who sent emails to the infra mailbox
@@ -517,13 +602,14 @@ CASUAL MODE: Keep responses friendly and brief (1-2 sentences). Be conversationa
 
 INFRA TEAM TICKET ANALYSIS MODE: 
 - Use the COMPLETE TICKET INFORMATION provided
+- ACTIVELY reference the KNOWLEDGE BASE for category-specific solutions and procedures
 - Focus on helping the infra team member understand and resolve the request
 - The "REQUEST BY" field shows the external user who sent the email to infra mailbox
 - This ticket was auto-created from an email request
-- Provide actionable insights for resolving infrastructure requests
+- Provide actionable insights for resolving infrastructure requests using knowledge base guidance
 - When asked "who created/requested/sent this", refer to the email sender
 - When asked "who, not when" - focus ONLY on the requester, don't mention dates
-- Help the infra team member understand what needs to be done"""
+- Help the infra team member understand what needs to be done using documented procedures"""
             
         elif has_ticket_context:
             # User is viewing a ticket but asking general questions
@@ -531,16 +617,17 @@ INFRA TEAM TICKET ANALYSIS MODE:
 
 INFRA TEAM CONTEXT-AWARE MODE: 
 - Use the COMPLETE TICKET INFORMATION to help the infra team member
+- Reference the KNOWLEDGE BASE for relevant procedures and solutions
 - The "REQUEST BY" field shows the external user who emailed the infra mailbox
 - This ticket was auto-created from an email request
-- Provide helpful insights for infrastructure team workflow
+- Provide helpful insights for infrastructure team workflow using knowledge base guidance
 - Reference ticket details when relevant to assist in resolution"""
             
         else:
             # General assistance
             return base_prompt + """
 
-INFRA TEAM HELP MODE: Provide clear, helpful answers about TeBSTrack features and infrastructure team workflow. Help infra team members manage tickets and resolve user requests efficiently."""
+INFRA TEAM HELP MODE: Provide clear, helpful answers about TeBSTrack features and infrastructure team workflow. Actively use the KNOWLEDGE BASE to answer questions about procedures, troubleshooting, and solutions. Help infra team members manage tickets and resolve user requests efficiently using documented guidance."""
 
 # Initialize AI service
 ai_service = TeBSTrackAI()

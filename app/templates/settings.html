@@ -52,7 +52,7 @@
 
   <!-- Category Management (admin only) -->
   {% if current_user.role == 'admin' %}
-  <div style="padding: 1.5rem; background: #fef7ff; border-radius: 12px; border: 1px solid #e9d5ff;">
+  <div style="padding: 1.5rem; background: #fef7ff; border-radius: 12px; border: 1px solid #e9d5ff; margin-bottom: 3rem;">
     <h2 style="color: #7c3aed; font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem;">Manage Categories</h2>
     <form method="post" action="{{ url_for('main.add_category') }}" style="margin-bottom:2rem; display:flex; gap:1rem; align-items:center;">
       <input type="text" name="category" placeholder="New Category" required style="flex:1; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
@@ -79,6 +79,48 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  <!-- Knowledge Base Management (admin only) -->
+  <div style="padding: 1.5rem; background: #f0fdf4; border-radius: 12px; border: 1px solid #bbf7d0;">
+    <h2 style="color: #15803d; font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem;">📚 Knowledge Base Management</h2>
+    
+    <!-- Knowledge Base Status -->
+    <div id="kb-status" style="background: #ffffff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #d1d5db;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <span style="font-weight: 600; color: #374151;">Knowledge Base Status:</span>
+        <button onclick="checkKnowledgeBaseStatus()" style="background: #6b7280; color: #fff; border: none; border-radius: 4px; padding: 0.3rem 0.8rem; font-size: 0.85rem; cursor: pointer;">Refresh</button>
+      </div>
+      <div id="kb-status-content" style="color: #6b7280; font-style: italic;">Click refresh to check status...</div>
+    </div>
+
+    <!-- Knowledge Base Editor -->
+    <form method="post" action="{{ url_for('main.update_knowledge_base') }}" id="kb-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Knowledge Base Content:</label>
+        <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem;">
+          This content will be used by the AI chatbot to answer user questions. Include procedures, troubleshooting steps, and guidelines.
+        </div>
+        <textarea 
+          name="knowledge_base_content" 
+          id="knowledge-base-textarea"
+          placeholder="Loading knowledge base content..."
+          style="width: 100%; min-height: 300px; padding: 1rem; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.9rem; font-family: 'Courier New', monospace; background: #f9fafb; color: #2d3a4b; resize: vertical;"
+        ></textarea>
+      </div>
+
+      <div style="display: flex; gap: 1rem; align-items: center;">
+        <button type="submit" style="background: #15803d; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.5rem; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; box-shadow: 0 1px 4px rgba(21,128,61,0.08);">
+          💾 Save Knowledge Base
+        </button>
+        
+        <button type="button" onclick="resetKnowledgeBase()" style="background: #dc2626; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.5rem; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s;">
+          🔄 Reset to Default
+        </button>
+      </div>
+    </form>
   </div>
   {% endif %}
 </div>
@@ -173,6 +215,86 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Listen for pagination checkbox changes
   paginationCheckbox.addEventListener('change', toggleTicketsPerPage);
+});
+
+// Knowledge Base Management Functions
+function checkKnowledgeBaseStatus() {
+  const statusContent = document.getElementById('kb-status-content');
+  statusContent.innerHTML = '<span style="color: #6b7280;">🔄 Checking status...</span>';
+  
+  fetch('/api/ai/knowledge-status')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const kb = data.knowledge_base;
+        statusContent.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div><strong>Status:</strong> ${kb.loaded ? '✅ Loaded' : '❌ Failed'}</div>
+            <div><strong>Content:</strong> ${kb.content_length} characters</div>
+            <div><strong>Source:</strong> ${kb.has_document ? '📄 Document' : '⚠️ Fallback'}</div>
+          </div>
+          <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
+            <strong>Preview:</strong> ${kb.preview}
+          </div>
+        `;
+        
+        // Load the current knowledge base content into the textarea
+        loadKnowledgeBaseContent();
+      } else {
+        statusContent.innerHTML = `<span style="color: #dc2626;">❌ Error: ${data.error}</span>`;
+      }
+    })
+    .catch(error => {
+      statusContent.innerHTML = `<span style="color: #dc2626;">❌ Failed to check: ${error}</span>`;
+    });
+}
+
+function loadKnowledgeBaseContent() {
+  const textarea = document.getElementById('knowledge-base-textarea');
+  textarea.placeholder = 'Loading current knowledge base...';
+  
+  fetch('/api/ai/get-knowledge-content')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        textarea.value = data.content;
+        textarea.placeholder = 'Enter knowledge base content...';
+      } else {
+        textarea.placeholder = 'Failed to load content. You can enter new content here.';
+      }
+    })
+    .catch(error => {
+      textarea.placeholder = 'Error loading content. You can enter new content here.';
+    });
+}
+
+function resetKnowledgeBase() {
+  if (confirm('⚠️ Are you sure you want to reset the knowledge base to default content? This will overwrite any custom changes.')) {
+    fetch('/api/ai/reset-knowledge-base', { method: 'POST' })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showSuccessPopup('Knowledge base reset to default content');
+          loadKnowledgeBaseContent();
+          checkKnowledgeBaseStatus();
+        } else {
+          alert('❌ Failed to reset: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Reset failed: ' + error);
+      });
+  }
+}
+
+// Auto-load knowledge base status when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  // Existing pagination code...
+  
+  // Check if we're on settings page and user is admin
+  if (document.getElementById('kb-status')) {
+    checkKnowledgeBaseStatus();
+  }
 });
 </script>
 {% endblock %}

@@ -1257,6 +1257,209 @@ def ai_recommend_template():
         return jsonify({'error': f'Template recommendation failed: {str(e)}'}), 500
 
 
+@main.route('/api/ai/knowledge-status')
+@login_required
+def knowledge_base_status():
+    """Check knowledge base loading status and test integration"""
+    try:
+        from .ai_service import get_ai_service
+        ai_service = get_ai_service()
+        
+        status = ai_service.get_knowledge_base_status()
+        
+        # Test knowledge base with a sample question
+        test_response = ai_service.test_knowledge_base_integration()
+        
+        return jsonify({
+            'success': True,
+            'knowledge_base': status,
+            'test_question': "How do I reset a user's VPN access?",
+            'test_response': test_response
+        })
+        
+    except Exception as e:
+        logging.error(f"Error checking knowledge base status: {e}")
+        return jsonify({'error': f'Knowledge base status check failed: {str(e)}'}), 500
+
+
+@main.route('/api/ai/get-knowledge-content')
+@login_required
+def get_knowledge_content():
+    """Get current knowledge base content for editing"""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    try:
+        from .ai_service import get_ai_service
+        ai_service = get_ai_service()
+        
+        return jsonify({
+            'success': True,
+            'content': ai_service.knowledge_base or ''
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting knowledge content: {e}")
+        return jsonify({'error': f'Failed to get knowledge content: {str(e)}'}), 500
+
+
+@main.route('/main/update_knowledge_base', methods=['POST'])
+@login_required
+def update_knowledge_base():
+    """Update the knowledge base content"""
+    if current_user.role != 'admin':
+        flash('Admin access required to update knowledge base.', 'error')
+        return redirect(url_for('main.settings'))
+        
+    try:
+        knowledge_content = request.form.get('knowledge_base_content', '').strip()
+        
+        if not knowledge_content:
+            flash('Knowledge base content cannot be empty.', 'error')
+            return redirect(url_for('main.settings'))
+        
+        # Update the AI service knowledge base
+        from .ai_service import get_ai_service
+        ai_service = get_ai_service()
+        ai_service.knowledge_base = knowledge_content
+        
+        # Optionally save to file for persistence
+        try:
+            import os
+            kb_file_path = os.path.join('app', 'knowledge', 'custom_knowledge.txt')
+            os.makedirs(os.path.dirname(kb_file_path), exist_ok=True)
+            
+            with open(kb_file_path, 'w', encoding='utf-8') as f:
+                f.write(knowledge_content)
+                
+            logging.info(f"Knowledge base updated and saved to {kb_file_path}")
+        except Exception as save_error:
+            logging.warning(f"Failed to save knowledge base to file: {save_error}")
+        
+        flash('Knowledge base updated successfully! The chatbot will now use the new content.', 'success')
+        
+    except Exception as e:
+        logging.error(f"Error updating knowledge base: {e}")
+        flash(f'Failed to update knowledge base: {str(e)}', 'error')
+    
+    return redirect(url_for('main.settings'))
+
+
+@main.route('/api/ai/reset-knowledge-base', methods=['POST'])
+@login_required
+def reset_knowledge_base():
+    """Reset knowledge base to default content"""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    try:
+        from .ai_service import get_ai_service
+        ai_service = get_ai_service()
+        
+        # Reset to default fallback knowledge
+        default_knowledge = """
+        TeBSTrack Infrastructure Ticketing System Knowledge Base:
+        
+        SYSTEM OVERVIEW:
+        TeBSTrack is an infrastructure team ticketing system that:
+        - Automatically creates tickets from emails sent to the "infra mailbox"
+        - Allows infra team members to track, manage, and resolve user requests
+        - Serves as a central hub for infrastructure-related issues and requests
+        
+        WORKFLOW:
+        1. External users/employees send requests to infra mailbox
+        2. TeBSTrack automatically converts emails into tickets
+        3. Infra team members (TeBSTrack users) view and manage tickets
+        4. Infra team resolves issues and responds to requesters
+        
+        USER ROLES:
+        - TeBSTrack Users: Infra team members who manage and resolve tickets
+        - Ticket Requesters: External users who send emails to infra mailbox
+        
+        CATEGORIES & PROCEDURES:
+        
+        1. SVN & VPN - Version control and VPN access issues
+           - Check user permissions and account status
+           - Validate network connectivity
+           - Reset credentials if necessary
+           - Verify firewall settings
+        
+        2. Server request - Server provisioning and maintenance
+           - Validate resource requirements
+           - Check capacity and availability
+           - Approve specifications with stakeholders
+           - Provision according to security guidelines
+        
+        3. Joiners and Exit - Employee onboarding/offboarding
+           - Follow standardized onboarding checklist
+           - Update access permissions and group memberships
+           - Coordinate with HR for account provisioning
+           - Ensure proper offboarding procedures
+        
+        4. Laptop Hardware Issue - Hardware problems and repairs
+           - Diagnose hardware issues using standard tools
+           - Check warranty status and coverage
+           - Coordinate replacements through approved vendors
+           - Document hardware lifecycle management
+        
+        5. TMS - Travel Management System issues
+           - Check system status and connectivity
+           - Validate user permissions and access
+           - Escalate to TMS vendor if needed
+           - Follow change management procedures
+        
+        6. Application Access Requests - Software access and permissions
+           - Verify user identity and authorization
+           - Check licensing availability
+           - Configure access according to role requirements
+           - Document access grants for audit purposes
+        
+        7. M365 - Microsoft 365 related issues
+           - Check licensing and subscription status
+           - Verify admin portal settings
+           - Use Microsoft admin tools for diagnostics
+           - Follow Microsoft best practices
+        
+        8. DevOps - CI/CD, deployment, infrastructure issues
+           - Check pipeline status and logs
+           - Validate deployment configurations
+           - Review infrastructure as code
+           - Follow DevOps best practices and procedures
+        
+        9. Other request - General IT inquiries
+           - Categorize properly for future reference
+           - Follow escalation procedures if needed
+           - Document solutions for knowledge base
+           - Ensure proper closure and follow-up
+        
+        URGENCY LEVELS:
+        - Urgent: System down, security breach - immediate response required
+        - High: Major functionality impaired - respond within 2 hours
+        - Medium: Minor issues, workarounds available - respond within 8 hours  
+        - Low: Enhancement requests, questions - respond within 24 hours
+        
+        GENERAL TROUBLESHOOTING:
+        1. Gather complete information from the requester
+        2. Reproduce the issue if possible
+        3. Check system logs and documentation
+        4. Apply known solutions from previous tickets
+        5. Escalate to appropriate teams if needed
+        6. Document the resolution for future reference
+        7. Follow up to ensure issue is resolved
+        """
+        
+        ai_service.knowledge_base = default_knowledge.strip()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Knowledge base reset to default content'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error resetting knowledge base: {e}")
+        return jsonify({'error': f'Failed to reset knowledge base: {str(e)}'}), 500
+
+
 @main.route('/api/ai/chatbot', methods=['POST'])
 @login_required
 @csrf.exempt
