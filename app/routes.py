@@ -1318,142 +1318,53 @@ def update_knowledge_base():
             flash('Knowledge base content cannot be empty.', 'error')
             return redirect(url_for('main.settings'))
         
-        # Update the AI service knowledge base
+        # Update the AI service knowledge base using proper method
         from .ai_service import get_ai_service
         ai_service = get_ai_service()
-        ai_service.knowledge_base = knowledge_content
+        success = ai_service.update_knowledge_base(knowledge_content)
         
-        # Optionally save to file for persistence
-        try:
-            import os
-            kb_file_path = os.path.join('app', 'knowledge', 'custom_knowledge.txt')
-            os.makedirs(os.path.dirname(kb_file_path), exist_ok=True)
-            
-            with open(kb_file_path, 'w', encoding='utf-8') as f:
-                f.write(knowledge_content)
-                
-            logging.info(f"Knowledge base updated and saved to {kb_file_path}")
-        except Exception as save_error:
-            logging.warning(f"Failed to save knowledge base to file: {save_error}")
-        
-        flash('Knowledge base updated successfully! The chatbot will now use the new content.', 'success')
+        if success:
+            flash('Knowledge base updated successfully! The chatbot will now use the new content.', 'success')
+        else:
+            flash('Failed to update knowledge base. Please try again.', 'error')
         
     except Exception as e:
         logging.error(f"Error updating knowledge base: {e}")
-        flash(f'Failed to update knowledge base: {str(e)}', 'error')
+        flash(f'An error occurred while updating the knowledge base: {str(e)}', 'error')
     
     return redirect(url_for('main.settings'))
 
 
 @main.route('/api/ai/reset-knowledge-base', methods=['POST'])
 @login_required
+@csrf.exempt
 def reset_knowledge_base():
-    """Reset knowledge base to default content"""
+    """Reset knowledge base to original document"""
+    logging.info("Reset knowledge base route accessed")
+    
     if current_user.role != 'admin':
+        logging.warning(f"Non-admin user {current_user.username} attempted to reset knowledge base")
         return jsonify({'error': 'Admin access required'}), 403
         
     try:
+        logging.info("Attempting to reset knowledge base...")
         from .ai_service import get_ai_service
         ai_service = get_ai_service()
         
-        # Reset to default fallback knowledge
-        default_knowledge = """
-        TeBSTrack Infrastructure Ticketing System Knowledge Base:
+        # Use the proper reset method from AI service
+        success = ai_service.reset_knowledge_base()
+        logging.info(f"Reset knowledge base result: {success}")
         
-        SYSTEM OVERVIEW:
-        TeBSTrack is an infrastructure team ticketing system that:
-        - Automatically creates tickets from emails sent to the "infra mailbox"
-        - Allows infra team members to track, manage, and resolve user requests
-        - Serves as a central hub for infrastructure-related issues and requests
-        
-        WORKFLOW:
-        1. External users/employees send requests to infra mailbox
-        2. TeBSTrack automatically converts emails into tickets
-        3. Infra team members (TeBSTrack users) view and manage tickets
-        4. Infra team resolves issues and responds to requesters
-        
-        USER ROLES:
-        - TeBSTrack Users: Infra team members who manage and resolve tickets
-        - Ticket Requesters: External users who send emails to infra mailbox
-        
-        CATEGORIES & PROCEDURES:
-        
-        1. SVN & VPN - Version control and VPN access issues
-           - Check user permissions and account status
-           - Validate network connectivity
-           - Reset credentials if necessary
-           - Verify firewall settings
-        
-        2. Server request - Server provisioning and maintenance
-           - Validate resource requirements
-           - Check capacity and availability
-           - Approve specifications with stakeholders
-           - Provision according to security guidelines
-        
-        3. Joiners and Exit - Employee onboarding/offboarding
-           - Follow standardized onboarding checklist
-           - Update access permissions and group memberships
-           - Coordinate with HR for account provisioning
-           - Ensure proper offboarding procedures
-        
-        4. Laptop Hardware Issue - Hardware problems and repairs
-           - Diagnose hardware issues using standard tools
-           - Check warranty status and coverage
-           - Coordinate replacements through approved vendors
-           - Document hardware lifecycle management
-        
-        5. TMS - Travel Management System issues
-           - Check system status and connectivity
-           - Validate user permissions and access
-           - Escalate to TMS vendor if needed
-           - Follow change management procedures
-        
-        6. Application Access Requests - Software access and permissions
-           - Verify user identity and authorization
-           - Check licensing availability
-           - Configure access according to role requirements
-           - Document access grants for audit purposes
-        
-        7. M365 - Microsoft 365 related issues
-           - Check licensing and subscription status
-           - Verify admin portal settings
-           - Use Microsoft admin tools for diagnostics
-           - Follow Microsoft best practices
-        
-        8. DevOps - CI/CD, deployment, infrastructure issues
-           - Check pipeline status and logs
-           - Validate deployment configurations
-           - Review infrastructure as code
-           - Follow DevOps best practices and procedures
-        
-        9. Other request - General IT inquiries
-           - Categorize properly for future reference
-           - Follow escalation procedures if needed
-           - Document solutions for knowledge base
-           - Ensure proper closure and follow-up
-        
-        URGENCY LEVELS:
-        - Urgent: System down, security breach - immediate response required
-        - High: Major functionality impaired - respond within 2 hours
-        - Medium: Minor issues, workarounds available - respond within 8 hours  
-        - Low: Enhancement requests, questions - respond within 24 hours
-        
-        GENERAL TROUBLESHOOTING:
-        1. Gather complete information from the requester
-        2. Reproduce the issue if possible
-        3. Check system logs and documentation
-        4. Apply known solutions from previous tickets
-        5. Escalate to appropriate teams if needed
-        6. Document the resolution for future reference
-        7. Follow up to ensure issue is resolved
-        """
-        
-        ai_service.knowledge_base = default_knowledge.strip()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Knowledge base reset to default content'
-        })
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Knowledge base reset to original document'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to reset knowledge base'
+            }), 500
         
     except Exception as e:
         logging.error(f"Error resetting knowledge base: {e}")

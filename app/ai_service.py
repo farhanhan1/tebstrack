@@ -7,6 +7,7 @@ import openai
 import os
 import json
 import logging
+import shutil
 from typing import Dict, List, Optional, Tuple
 from .models import Category, db
 
@@ -21,7 +22,44 @@ class TeBSTrackAI:
         try:
             from .document_loader import DocumentLoader
             
-            # Try to load custom knowledge first
+            # First priority: Check for edited copy of infra_guide (text version)
+            text_copy_paths = [
+                'app/knowledge/infra_guide_edited.txt',
+                'knowledge/infra_guide_edited.txt'
+            ]
+            
+            for path in text_copy_paths:
+                if os.path.exists(path):
+                    try:
+                        with open(path, 'r', encoding='utf-8') as f:
+                            content = f.read().strip()
+                            if content:
+                                logging.info(f"Loaded knowledge base from edited text copy {path}")
+                                return content
+                    except Exception as e:
+                        logging.warning(f"Failed to load edited text copy {path}: {e}")
+                        continue
+            
+            # Second priority: Check for edited copy of infra_guide (document version)
+            copy_paths = [
+                'app/knowledge/infra_guide_edited.docx',
+                'app/knowledge/infra_guide_edited.pdf',
+                'knowledge/infra_guide_edited.docx',
+                'knowledge/infra_guide_edited.pdf'
+            ]
+            
+            for path in copy_paths:
+                if os.path.exists(path):
+                    try:
+                        content = DocumentLoader.load_knowledge_document(path)
+                        if content:
+                            logging.info(f"Loaded knowledge base from edited copy {path}")
+                            return content
+                    except Exception as e:
+                        logging.warning(f"Failed to load edited copy {path}: {e}")
+                        continue
+            
+            # Third priority: Check for custom text knowledge
             custom_paths = [
                 'app/knowledge/custom_knowledge.txt',
                 'knowledge/custom_knowledge.txt'
@@ -39,20 +77,20 @@ class TeBSTrackAI:
                         logging.warning(f"Failed to load custom knowledge from {path}: {e}")
                         continue
             
-            # Try to load knowledge document
-            knowledge_paths = [
-                'app/knowledge/infra_guide.pdf',
+            # Fourth priority: Load original knowledge document
+            original_paths = [
                 'app/knowledge/infra_guide.docx',
-                'knowledge/infra_guide.pdf',
-                'knowledge/infra_guide.docx'
+                'app/knowledge/infra_guide.pdf',
+                'knowledge/infra_guide.docx',
+                'knowledge/infra_guide.pdf'
             ]
             
-            for path in knowledge_paths:
+            for path in original_paths:
                 if os.path.exists(path):
                     try:
                         content = DocumentLoader.load_knowledge_document(path)
                         if content:
-                            logging.info(f"Loaded knowledge base from document {path}")
+                            logging.info(f"Loaded knowledge base from original document {path}")
                             return content
                     except Exception as e:
                         logging.warning(f"Failed to load {path}: {e}")
@@ -163,17 +201,144 @@ class TeBSTrackAI:
             return False
     
     def update_knowledge_base(self, new_content: str) -> bool:
-        """Update the knowledge base content in memory"""
+        """Update the knowledge base by creating an edited copy of the original document"""
         try:
             if not new_content or not new_content.strip():
                 logging.warning("Attempted to set empty knowledge base content")
                 return False
+            
+            # Find the original infra_guide document
+            original_path = self._find_original_document()
+            if not original_path:
+                # Fallback to text-based custom knowledge if no original document exists
+                return self._save_custom_text_knowledge(new_content)
+            
+            # Create a copy with the edited content
+            success = self._create_edited_copy(original_path, new_content)
+            if success:
+                # Update in-memory knowledge base
+                self.knowledge_base = new_content.strip()
+                logging.info(f"Knowledge base updated via edited copy: {len(self.knowledge_base)} characters")
+                return True
+            else:
+                # Fallback to text-based custom knowledge
+                return self._save_custom_text_knowledge(new_content)
                 
-            self.knowledge_base = new_content.strip()
-            logging.info(f"Knowledge base updated in memory: {len(self.knowledge_base)} characters")
-            return True
         except Exception as e:
             logging.error(f"Failed to update knowledge base: {e}")
+            return False
+    
+    def reset_knowledge_base(self) -> bool:
+        """Reset knowledge base to original document by removing edited copies"""
+        try:
+            # Remove any edited text copies
+            text_copy_paths = [
+                'app/knowledge/infra_guide_edited.txt',
+                'knowledge/infra_guide_edited.txt'
+            ]
+            
+            # Remove any edited document copies
+            copy_paths = [
+                'app/knowledge/infra_guide_edited.docx',
+                'app/knowledge/infra_guide_edited.pdf',
+                'knowledge/infra_guide_edited.docx',
+                'knowledge/infra_guide_edited.pdf'
+            ]
+            
+            removed_any = False
+            all_paths = text_copy_paths + copy_paths
+            
+            for path in all_paths:
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                        logging.info(f"Removed edited copy: {path}")
+                        removed_any = True
+                    except Exception as e:
+                        logging.warning(f"Failed to remove {path}: {e}")
+            
+            # Also remove custom text knowledge files
+            custom_paths = [
+                'app/knowledge/custom_knowledge.txt',
+                'knowledge/custom_knowledge.txt'
+            ]
+            
+            for path in custom_paths:
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                        logging.info(f"Removed custom knowledge: {path}")
+                        removed_any = True
+                    except Exception as e:
+                        logging.warning(f"Failed to remove {path}: {e}")
+            
+            # Reload knowledge base from original document
+            self.knowledge_base = self._load_knowledge_base()
+            logging.info("Knowledge base reset to original document")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to reset knowledge base: {e}")
+            return False
+    
+    def _find_original_document(self) -> Optional[str]:
+        """Find the original infra_guide document"""
+        original_paths = [
+            'app/knowledge/infra_guide.docx',
+            'app/knowledge/infra_guide.pdf',
+            'knowledge/infra_guide.docx',
+            'knowledge/infra_guide.pdf'
+        ]
+        
+        for path in original_paths:
+            if os.path.exists(path):
+                return path
+        
+        return None
+    
+    def _create_edited_copy(self, original_path: str, new_content: str) -> bool:
+        """Create an edited copy of the original document with new content"""
+        try:
+            # Determine the copy path based on original file extension
+            directory = os.path.dirname(original_path)
+            filename = os.path.basename(original_path)
+            name, ext = os.path.splitext(filename)
+            copy_path = os.path.join(directory, f"{name}_edited{ext}")
+            
+            # For now, save as text file since we can't easily edit DOCX/PDF files
+            # We'll create a text representation that the document loader can handle
+            text_copy_path = os.path.join(directory, "infra_guide_edited.txt")
+            
+            with open(text_copy_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            
+            logging.info(f"Created edited knowledge copy at: {text_copy_path}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to create edited copy: {e}")
+            return False
+    
+    def _save_custom_text_knowledge(self, content: str) -> bool:
+        """Fallback method to save custom knowledge as text file"""
+        try:
+            # Ensure the knowledge directory exists
+            knowledge_dir = 'app/knowledge'
+            if not os.path.exists(knowledge_dir):
+                os.makedirs(knowledge_dir)
+            
+            # Save the custom content
+            custom_path = os.path.join(knowledge_dir, 'custom_knowledge.txt')
+            with open(custom_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            # Update in-memory knowledge base
+            self.knowledge_base = content.strip()
+            logging.info(f"Saved custom knowledge as text: {len(content)} characters")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to save custom text knowledge: {e}")
             return False
     
     def categorize_ticket(self, subject: str, body: str, sender: str = "") -> Dict[str, any]:

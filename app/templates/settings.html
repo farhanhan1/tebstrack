@@ -107,7 +107,7 @@
           name="knowledge_base_content" 
           id="knowledge-base-textarea"
           placeholder="Loading knowledge base content..."
-          style="width: 100%; min-height: 300px; padding: 1rem; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.9rem; font-family: 'Courier New', monospace; background: #f9fafb; color: #2d3a4b; resize: vertical;"
+          style="width: 93%; min-height: 300px; padding: 1rem; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.9rem; font-family: 'Courier New', monospace; background: #f9fafb; color: #2d3a4b; resize: vertical;"
         ></textarea>
       </div>
 
@@ -271,17 +271,29 @@ function loadKnowledgeBaseContent() {
 function resetKnowledgeBase() {
   if (confirm('⚠️ Are you sure you want to reset the knowledge base to default content? This will overwrite any custom changes.')) {
     fetch('/api/ai/reset-knowledge-base', { method: 'POST' })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          showSuccessPopup('Knowledge base reset to default content');
-          loadKnowledgeBaseContent();
-          checkKnowledgeBaseStatus();
-        } else {
-          alert('❌ Failed to reset: ' + (data.error || 'Unknown error'));
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.text(); // Get as text first to debug
+      })
+      .then(text => {
+        try {
+          const data = JSON.parse(text);
+          if (data.success) {
+            showSuccessPopup('Knowledge base reset to default content');
+            loadKnowledgeBaseContent();
+            checkKnowledgeBaseStatus();
+          } else {
+            alert('❌ Failed to reset: ' + (data.error || 'Unknown error'));
+          }
+        } catch (e) {
+          console.error('Response was not JSON:', text);
+          alert('❌ Reset failed - unexpected response: ' + text.substring(0, 100));
         }
       })
       .catch(error => {
+        console.error('Reset error:', error);
         alert('❌ Reset failed: ' + error);
       });
   }
