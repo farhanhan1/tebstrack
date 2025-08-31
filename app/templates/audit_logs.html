@@ -2,8 +2,43 @@
 {% block content %}
 <div class="dashboard-container">
   <h1 style="color:#2563eb;">Audit Logs</h1>
-  <div class="admin-section" style="margin-top:2rem;">
-    <table class="ticket-table">
+  
+  <!-- Filter Options -->
+  <div class="admin-section" style="margin-top:1rem; margin-bottom:1rem;">
+    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+      <label for="actionFilter" style="font-weight: 600;">Filter by Action:</label>
+      <select id="actionFilter" onchange="filterLogs()" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+        <option value="">All Actions</option>
+        {% set unique_actions = logs|map(attribute='action')|unique|list|sort %}
+        {% for action in unique_actions %}
+        <option value="{{ action }}">{{ action }}</option>
+        {% endfor %}
+      </select>
+      
+      <label for="userFilter" style="font-weight: 600;">Filter by User:</label>
+      <select id="userFilter" onchange="filterLogs()" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+        <option value="">All Users</option>
+        {% for log in logs %}
+          {% if log.user not in unique_users %}
+            {% set unique_users = unique_users + [log.user] if unique_users else [log.user] %}
+          {% endif %}
+        {% endfor %}
+        {% set unique_users = logs|map(attribute='user')|unique|list %}
+        {% for user in unique_users %}
+        <option value="{{ user }}">{{ user }}</option>
+        {% endfor %}
+      </select>
+      
+      <button onclick="clearFilters()" style="padding: 0.5rem 1rem; background-color: #6b7280; color: white; border: none; border-radius: 0.375rem; cursor: pointer;">Clear Filters</button>
+      
+      <button onclick="exportLogs()" style="padding: 0.5rem 1rem; background-color: #059669; color: white; border: none; border-radius: 0.375rem; cursor: pointer; margin-left: 1rem;">
+        📄 Export CSV
+      </button>
+    </div>
+  </div>
+
+  <div class="admin-section" style="margin-top:1rem;">
+    <table class="ticket-table" id="auditTable">
       <thead>
         <tr>
           <th>Timestamp</th>
@@ -14,11 +49,45 @@
       </thead>
       <tbody>
         {% for log in logs %}
-        <tr>
-          <td>{{ log.timestamp }}</td>
-          <td>{{ log.user }}</td>
-          <td>{{ log.action }}</td>
-          <td>{{ log.details }}</td>
+        <tr class="audit-row" data-action="{{ log.action }}" data-user="{{ log.user }}">
+          <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else log.timestamp }}</td>
+          <td>
+            <span class="user-badge">{{ log.user }}</span>
+          </td>
+          <td>
+            {% if 'Knowledge Base' in log.action %}
+              <span class="action-badge kb-action">{{ log.action }}</span>
+            {% elif 'User' in log.action %}
+              <span class="action-badge user-action">{{ log.action }}</span>
+            {% elif 'System' in log.action %}
+              <span class="action-badge system-action">{{ log.action }}</span>
+            {% elif 'Ticket' in log.action %}
+              <span class="action-badge ticket-action">{{ log.action }}</span>
+            {% else %}
+              <span class="action-badge default-action">{{ log.action }}</span>
+            {% endif %}
+          </td>
+          <td class="details-cell">
+            {% if 'Knowledge Base' in log.action and 'Before:' in log.details %}
+              <div class="kb-details">
+                <div class="kb-summary">
+                  {% set parts = log.details.split(' | ') %}
+                  {% for part in parts %}
+                    {% if 'Before:' in part or 'After:' in part %}
+                      <div class="kb-status-change">
+                        <strong>{{ part.split(':')[0] }}:</strong>
+                        <span class="status-info">{{ part.split(':', 1)[1] }}</span>
+                      </div>
+                    {% else %}
+                      <div>{{ part }}</div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% else %}
+              {{ log.details }}
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -28,4 +97,151 @@
     {% endif %}
   </div>
 </div>
+
+<style>
+.user-badge {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.action-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.kb-action {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.user-action {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.system-action {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.ticket-action {
+  background-color: #fce7f3;
+  color: #be185d;
+}
+
+.default-action {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.details-cell {
+  max-width: 400px;
+  word-wrap: break-word;
+}
+
+.kb-details {
+  font-size: 0.875rem;
+}
+
+.kb-status-change {
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+  background-color: #f9fafb;
+  border-radius: 0.25rem;
+  border-left: 3px solid #10b981;
+}
+
+.status-info {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #6b7280;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.audit-row.hidden {
+  display: none;
+}
+</style>
+
+<script>
+function filterLogs() {
+  const actionFilter = document.getElementById('actionFilter').value;
+  const userFilter = document.getElementById('userFilter').value;
+  const rows = document.querySelectorAll('.audit-row');
+  
+  rows.forEach(row => {
+    const action = row.getAttribute('data-action');
+    const user = row.getAttribute('data-user');
+    
+    let showRow = true;
+    
+    if (actionFilter && action !== actionFilter) {
+      showRow = false;
+    }
+    
+    if (userFilter && user !== userFilter) {
+      showRow = false;
+    }
+    
+    if (showRow) {
+      row.classList.remove('hidden');
+    } else {
+      row.classList.add('hidden');
+    }
+  });
+}
+
+function clearFilters() {
+  document.getElementById('actionFilter').value = '';
+  document.getElementById('userFilter').value = '';
+  filterLogs();
+}
+
+function exportLogs() {
+  // Get all visible rows (respecting current filters)
+  const visibleRows = document.querySelectorAll('.audit-row:not(.hidden)');
+  
+  // CSV headers
+  let csvContent = 'Timestamp,User,Action,Details\n';
+  
+  // Add data rows
+  visibleRows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    const timestamp = cells[0].textContent.trim();
+    const user = cells[1].textContent.trim();
+    const action = cells[2].textContent.trim();
+    const details = cells[3].textContent.trim().replace(/\n/g, ' ').replace(/"/g, '""');
+    
+    csvContent += `"${timestamp}","${user}","${action}","${details}"\n`;
+  });
+  
+  // Create and download file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  
+  // Generate filename with current date
+  const now = new Date();
+  const dateStr = now.getFullYear() + '-' + 
+                  String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                  String(now.getDate()).padStart(2, '0');
+  const timeStr = String(now.getHours()).padStart(2, '0') + '-' + 
+                  String(now.getMinutes()).padStart(2, '0');
+  
+  link.setAttribute('download', `audit_logs_${dateStr}_${timeStr}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+</script>
 {% endblock %}

@@ -1340,18 +1340,63 @@ def update_knowledge_base():
             flash('Knowledge base content cannot be empty.', 'error')
             return redirect(url_for('main.settings'))
         
-        # Update the AI service knowledge base using proper method
+        # Get current status for audit log
         from .ai_service import get_ai_service
         ai_service = get_ai_service()
+        old_status = ai_service.get_knowledge_base_status()
+        old_content_length = old_status.get('content_length', 0)
+        old_source_path = old_status.get('source_path', 'Unknown')
+        
+        # Update the AI service knowledge base using proper method
         success = ai_service.update_knowledge_base(knowledge_content)
         
         if success:
+            # Get new status for audit log
+            new_status = ai_service.get_knowledge_base_status()
+            new_content_length = new_status.get('content_length', 0)
+            new_source_path = new_status.get('source_path', 'Unknown')
+            
+            # Create audit log entry
+            from .models import Log
+            audit_entry = Log(
+                user=current_user.username,
+                action='Knowledge Base Updated',
+                details=f'Updated knowledge base content. Size: {old_content_length} → {new_content_length} characters. Source: {old_source_path} → {new_source_path}'
+            )
+            db.session.add(audit_entry)
+            db.session.commit()
+            
             flash('Knowledge base updated successfully! The chatbot will now use the new content.', 'success')
+            logging.info(f"Knowledge base updated by {current_user.username}: {old_content_length} → {new_content_length} characters")
         else:
+            # Log failed attempt
+            from .models import Log
+            audit_entry = Log(
+                user=current_user.username,
+                action='Knowledge Base Update Failed',
+                details=f'Failed to update knowledge base content. Content size: {len(knowledge_content)} characters'
+            )
+            db.session.add(audit_entry)
+            db.session.commit()
+            
             flash('Failed to update knowledge base. Please try again.', 'error')
         
     except Exception as e:
         logging.error(f"Error updating knowledge base: {e}")
+        
+        # Log error in audit
+        try:
+            from .models import Log
+            audit_entry = Log(
+                user=current_user.username,
+                action='Knowledge Base Update Error',
+                details=f'Error occurred while updating knowledge base: {str(e)}'
+            )
+            db.session.add(audit_entry)
+            db.session.commit()
+        except:
+            pass  # Don't fail if audit logging fails
+            
         flash(f'An error occurred while updating the knowledge base: {str(e)}', 'error')
     
     return redirect(url_for('main.settings'))
@@ -1373,16 +1418,48 @@ def reset_knowledge_base():
         from .ai_service import get_ai_service
         ai_service = get_ai_service()
         
+        # Get current status for audit log
+        old_status = ai_service.get_knowledge_base_status()
+        old_content_length = old_status.get('content_length', 0)
+        old_source_path = old_status.get('source_path', 'Unknown')
+        old_source_type = old_status.get('source_type', 'unknown')
+        
         # Use the proper reset method from AI service
         success = ai_service.reset_knowledge_base()
         logging.info(f"Reset knowledge base result: {success}")
         
         if success:
+            # Get new status for audit log
+            new_status = ai_service.get_knowledge_base_status()
+            new_content_length = new_status.get('content_length', 0)
+            new_source_path = new_status.get('source_path', 'Unknown')
+            new_source_type = new_status.get('source_type', 'unknown')
+            
+            # Create audit log entry
+            from .models import Log
+            audit_entry = Log(
+                user=current_user.username,
+                action='Knowledge Base Reset',
+                details=f'Reset knowledge base to original document. Previous: {old_source_type} ({old_content_length} chars, {old_source_path}) → Current: {new_source_type} ({new_content_length} chars, {new_source_path})'
+            )
+            db.session.add(audit_entry)
+            db.session.commit()
+            
             return jsonify({
                 'success': True,
                 'message': 'Knowledge base reset to original document'
             })
         else:
+            # Log failed attempt
+            from .models import Log
+            audit_entry = Log(
+                user=current_user.username,
+                action='Knowledge Base Reset Failed',
+                details=f'Failed to reset knowledge base. Current state: {old_source_type} ({old_content_length} chars, {old_source_path})'
+            )
+            db.session.add(audit_entry)
+            db.session.commit()
+            
             return jsonify({
                 'success': False,
                 'error': 'Failed to reset knowledge base'
@@ -1390,6 +1467,20 @@ def reset_knowledge_base():
         
     except Exception as e:
         logging.error(f"Error resetting knowledge base: {e}")
+        
+        # Log error in audit
+        try:
+            from .models import Log
+            audit_entry = Log(
+                user=current_user.username,
+                action='Knowledge Base Reset Error',
+                details=f'Error occurred while resetting knowledge base: {str(e)}'
+            )
+            db.session.add(audit_entry)
+            db.session.commit()
+        except:
+            pass  # Don't fail if audit logging fails
+            
         return jsonify({'error': f'Failed to reset knowledge base: {str(e)}'}), 500
 
 
