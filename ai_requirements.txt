@@ -1,4 +1,0 @@
-# Add these to your requirements.txt
-openai>=1.3.0
-PyMuPDF>=1.23.0  # for PDF processing (fitz)
-python-docx>=0.8.11  # for DOCX processing
