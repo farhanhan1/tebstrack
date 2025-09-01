@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}Template Action Steps - {{ template.name }}{% endblock %}
+
+{% block content %}
+<!-- Success Popup -->
+<div id="success-popup" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 10000; background: #10b981; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-weight: 600; font-size: 1rem; max-width: 300px;">
+    <div id="success-message"></div>
+</div>
+
+<div class="dashboard-container">
+    <div style="max-width: 1200px; margin: 0 auto;">
+        <!-- Header Section -->
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden; margin-bottom: 2rem;">
+            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h1 style="color: #2563eb; font-size: 1.8rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-tasks" style="color: #4f8cff;"></i>
+                            Action Steps: {{ template.name }}
+                        </h1>
+                        <p style="color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1rem;">Configure automated workflow steps for this template</p>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <a href="{{ url_for('main.create_action_step', template_id=template.id) }}" 
+                           style="background: #059669; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; transition: background 0.2s; box-shadow: 0 2px 8px rgba(5,150,105,0.15);">
+                            <i class="fas fa-plus" style="margin-right: 0.5rem;"></i>Add Step
+                        </a>
+                        <a href="{{ url_for('main.edit_email_template', template_id=template.id) }}" 
+                           style="background: #6b7280; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; transition: background 0.2s;">
+                            <i class="fas fa-edit" style="margin-right: 0.5rem;"></i>Edit Template
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Template Summary Card -->
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden; margin-bottom: 2rem;">
+            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
+                <h2 style="color: #374151; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-info-circle" style="color: #4f8cff;"></i>
+                    Template Summary
+                </h2>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: center;">
+                    <div>
+                        <div style="margin-bottom: 1rem;">
+                            <h3 style="color: #374151; font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">{{ template.name }}</h3>
+                            <div style="color: #6b7280; margin-bottom: 0.5rem;"><strong>Subject:</strong> {{ template.subject }}</div>
+                            <div style="color: #6b7280; margin-bottom: 0.5rem;"><strong>Use Case:</strong> {{ template.use_case_description or 'No description' }}</div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <strong style="color: #374151;">Status:</strong>
+                                {% if template.is_active %}
+                                    <span style="background: #10b981; color: #fff; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">Active</span>
+                                {% else %}
+                                    <span style="background: #6b7280; color: #fff; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">Inactive</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 3rem; font-weight: 700; color: #2563eb; margin-bottom: 0.5rem;">{{ action_steps|length }}</div>
+                        <div style="color: #6b7280; font-weight: 500;">Action Steps</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if action_steps %}
+        <!-- Action Steps List -->
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden; margin-bottom: 2rem;">
+            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
+                <h2 style="color: #374151; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-list-ol" style="color: #4f8cff;"></i>
+                    Workflow Steps
+                </h2>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="ticket-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                    <thead style="background: #f1f5f9;">
+                        <tr>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; width: 80px;">Order</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Step Title</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; width: 120px;">Type</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Description</th>
+                            <th style="padding: 1rem; text-align: center; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; width: 100px;">Automated</th>
+                            <th style="padding: 1rem; text-align: center; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; width: 180px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for step in action_steps %}
+                        <tr data-step-id="{{ step.id }}" style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 1rem; color: #374151;">
+                                <span style="background: #2563eb; color: #fff; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">{{ step.step_order }}</span>
+                            </td>
+                            <td style="padding: 1rem; color: #374151;">
+                                <div style="font-weight: 600;">{{ step.step_title }}</div>
+                            </td>
+                            <td style="padding: 1rem; color: #374151;">
+                                {% if step.step_type == 'manual' %}
+                                    <span style="background: #0ea5e9; color: #fff; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">Manual</span>
+                                {% elif step.step_type == 'automated' %}
+                                    <span style="background: #f59e0b; color: #fff; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">Automated</span>
+                                {% else %}
+                                    <span style="background: #6b7280; color: #fff; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">{{ step.step_type.title() }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 1rem; color: #374151;">
+                                <div style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ step.step_description }}">
+                                    {{ step.step_description }}
+                                </div>
+                            </td>
+                            <td style="padding: 1rem; text-align: center; color: #374151;">
+                                {% if step.is_automated %}
+                                    <i class="fas fa-robot" style="color: #10b981; font-size: 1.2rem;" title="Automated Step"></i>
+                                {% else %}
+                                    <i class="fas fa-user" style="color: #6b7280; font-size: 1.2rem;" title="Manual Step"></i>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 1rem; text-align: center;">
+                                <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                                    <button onclick="editStep({{ step.id }})" title="Edit Step"
+                                            style="background: #3b82f6; color: #fff; border: none; border-radius: 4px; padding: 0.4rem 0.6rem; cursor: pointer; transition: background 0.2s; font-size: 0.9rem;">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="moveStep({{ step.id }}, 'up')" title="Move Up"
+                                            {% if step.step_order == 1 %}disabled{% endif %}
+                                            style="background: {% if step.step_order == 1 %}#d1d5db{% else %}#6b7280{% endif %}; color: #fff; border: none; border-radius: 4px; padding: 0.4rem 0.6rem; cursor: {% if step.step_order == 1 %}not-allowed{% else %}pointer{% endif %}; transition: background 0.2s; font-size: 0.9rem;">
+                                        <i class="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button onclick="moveStep({{ step.id }}, 'down')" title="Move Down"
+                                            {% if step.step_order == action_steps|length %}disabled{% endif %}
+                                            style="background: {% if step.step_order == action_steps|length %}#d1d5db{% else %}#6b7280{% endif %}; color: #fff; border: none; border-radius: 4px; padding: 0.4rem 0.6rem; cursor: {% if step.step_order == action_steps|length %}not-allowed{% else %}pointer{% endif %}; transition: background 0.2s; font-size: 0.9rem;">
+                                        <i class="fas fa-arrow-down"></i>
+                                    </button>
+                                    <button onclick="deleteStep({{ step.id }})" title="Delete Step"
+                                            style="background: #dc2626; color: #fff; border: none; border-radius: 4px; padding: 0.4rem 0.6rem; cursor: pointer; transition: background 0.2s; font-size: 0.9rem;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Test Workflow Card -->
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden;">
+            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
+                <h2 style="color: #374151; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-play-circle" style="color: #6366f1;"></i>
+                    Test Workflow
+                </h2>
+                <p style="color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1rem;">Test the action steps generation for a sample ticket</p>
+            </div>
+            <div style="padding: 1.5rem;">
+                <form id="testWorkflowForm">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                                Ticket Subject:
+                            </label>
+                            <input type="text" id="testTicketSubject" 
+                                   style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;"
+                                   placeholder="Sample ticket subject...">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                                Sender Email:
+                            </label>
+                            <input type="email" id="testSender" 
+                                   style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;"
+                                   placeholder="user@example.com">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                                Category:
+                            </label>
+                            <input type="text" id="testCategory" 
+                                   style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;"
+                                   placeholder="Network">
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Ticket Description:
+                        </label>
+                        <textarea id="testDescription" rows="2" 
+                                  style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical; transition: border 0.2s;"
+                                  placeholder="Sample ticket description..."></textarea>
+                    </div>
+                    <button type="button" onclick="testWorkflow()" 
+                            style="background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s;">
+                        <i class="fas fa-play" style="margin-right: 0.5rem;"></i>Test Action Steps
+                    </button>
+                </form>
+                
+                <div id="workflowResults" style="display: none; margin-top: 1.5rem;">
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;">
+                    <h3 style="color: #374151; font-size: 1.2rem; font-weight: 600; margin-bottom: 1rem;">Generated Action Steps:</h3>
+                    <div id="workflowContent"></div>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- No Action Steps -->
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden;">
+            <div style="padding: 3rem; text-align: center;">
+                <div style="color: #9ca3af; font-size: 4rem; margin-bottom: 1rem;">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <h3 style="color: #374151; font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">No Action Steps Configured</h3>
+                <p style="color: #6b7280; margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+                    Add workflow steps to guide staff through resolving tickets that use this template. Steps can be manual tasks or automated actions.
+                </p>
+                <a href="{{ url_for('main.create_action_step', template_id=template.id) }}" 
+                   style="background: #059669; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; transition: background 0.2s; box-shadow: 0 2px 8px rgba(5,150,105,0.15);">
+                    <i class="fas fa-plus" style="margin-right: 0.5rem;"></i>Create First Action Step
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+input:focus, textarea:focus {
+    outline: none !important;
+    border-color: #4f8cff !important;
+    box-shadow: 0 0 0 3px rgba(79,140,255,0.1) !important;
+}
+
+button:hover {
+    background: #1d4ed8 !important;
+}
+
+a[href]:hover {
+    background: #4b5563 !important;
+}
+
+a[href*="create_action_step"]:hover {
+    background: #047857 !important;
+}
+
+button[onclick*="test"]:hover {
+    background: #4f46e5 !important;
+}
+
+button[onclick*="edit"]:hover {
+    background: #2563eb !important;
+}
+
+button[onclick*="move"]:hover {
+    background: #4b5563 !important;
+}
+
+button[onclick*="delete"]:hover {
+    background: #b91c1c !important;
+}
+</style>
+
+<script>
+// Success popup functionality
+function showSuccessPopup(message) {
+    const popup = document.getElementById('success-popup');
+    const messageElement = document.getElementById('success-message');
+    
+    messageElement.textContent = message;
+    popup.style.display = 'block';
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        popup.style.display = 'none';
+    }, 3000);
+}
+
+// Show popup if there are flash messages
+document.addEventListener('DOMContentLoaded', function() {
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                showSuccessPopup('{{ message }}');
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+});
+
+function editStep(stepId) {
+    // For now, just show alert - you can implement inline editing later
+    alert('Edit step functionality - redirect to edit form or open modal');
+}
+
+function moveStep(stepId, direction) {
+    // Implement step reordering
+    alert(`Move step ${stepId} ${direction} - implement AJAX call to reorder`);
+}
+
+function deleteStep(stepId) {
+    if (confirm('Are you sure you want to delete this action step?')) {
+        // Implement delete functionality
+        alert(`Delete step ${stepId} - implement AJAX call`);
+    }
+}
+
+function testWorkflow() {
+    const subject = document.getElementById('testTicketSubject').value.trim();
+    const description = document.getElementById('testDescription').value.trim();
+    const sender = document.getElementById('testSender').value.trim();
+    const category = document.getElementById('testCategory').value.trim();
+    
+    if (!subject || !description) {
+        alert('Please enter both subject and description for testing.');
+        return;
+    }
+    
+    document.getElementById('workflowContent').innerHTML = '<div style="text-align: center; color: #6b7280; font-style: italic;"><i class="fas fa-spinner fa-spin"></i> Generating action steps...</div>';
+    document.getElementById('workflowResults').style.display = 'block';
+    
+    fetch('/api/templates/{{ template.name }}/action-steps', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            subject: subject,
+            description: description,
+            sender: sender,
+            category: category,
+            ticket_id: 'TEST'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.action_steps && data.action_steps.length > 0) {
+            let stepsHtml = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
+            data.action_steps.forEach((step, index) => {
+                stepsHtml += `
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                            <h6 style="margin: 0; color: #374151; font-weight: 600;">
+                                <span style="background: #2563eb; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; margin-right: 0.5rem;">${step.order || index + 1}</span>
+                                ${step.title}
+                            </h6>
+                            <span style="font-size: 0.85rem; color: #6b7280;">
+                                ${step.is_automated ? '<i class="fas fa-robot"></i> Automated' : '<i class="fas fa-user"></i> Manual'}
+                            </span>
+                        </div>
+                        <p style="margin: 0.5rem 0; color: #374151;">${step.description}</p>
+                        <small style="color: #6b7280;">Type: ${step.type}</small>
+                    </div>
+                `;
+            });
+            stepsHtml += '</div>';
+            document.getElementById('workflowContent').innerHTML = stepsHtml;
+        } else {
+            document.getElementById('workflowContent').innerHTML = `
+                <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 1rem; color: #0369a1;">
+                    <i class="fas fa-info-circle"></i> No action steps generated for this test case.
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('workflowContent').innerHTML = `
+            <div style="background: #fef2f2; border: 1px solid #dc2626; border-radius: 8px; padding: 1rem; color: #dc2626;">
+                <h6 style="margin-bottom: 0.5rem;"><i class="fas fa-exclamation-circle"></i> Test Failed</h6>
+                <p style="margin: 0;">Error: ${error.message}</p>
+            </div>
+        `;
+    });
+}
+
+// Pre-fill test form with sample data based on template
+document.addEventListener('DOMContentLoaded', function() {
+    const templateName = '{{ template.name }}';
+    if (templateName.toLowerCase().includes('vpn')) {
+        document.getElementById('testTicketSubject').value = 'Need VPN access for remote work';
+        document.getElementById('testDescription').value = 'I need VPN access to connect to company resources from home.';
+        document.getElementById('testSender').value = 'john.doe@company.com';
+        document.getElementById('testCategory').value = 'Network';
+    }
+});
+</script>
+{% endblock %}

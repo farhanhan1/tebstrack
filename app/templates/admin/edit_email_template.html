@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Email Template{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div style="max-width: 800px; margin: 0 auto;">
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden;">
+            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
+                <h1 style="color: #2563eb; font-size: 1.8rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-edit" style="color: #4f8cff;"></i>
+                    Edit Template: {{ template.name }}
+                </h1>
+                <p style="color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1rem;">Update the email template configuration and settings</p>
+            </div>
+            <div style="padding: 2rem;">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Template Name <span style="color: #dc2626;">*</span>
+                        </label>
+                        <input type="text" name="name" required value="{{ template.name }}"
+                               style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;">
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Email Subject <span style="color: #dc2626;">*</span>
+                        </label>
+                        <input type="text" name="subject" required value="{{ template.subject }}"
+                               style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;">
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Use Case Description
+                        </label>
+                        <textarea name="use_case_description" rows="2"
+                                  style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical; transition: border 0.2s;">{{ template.use_case_description or '' }}</textarea>
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.3rem;">
+                            Help the AI understand when to recommend this template
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Email Body <span style="color: #dc2626;">*</span>
+                        </label>
+                        <textarea name="body" rows="12" required
+                                  style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical; transition: border 0.2s; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">{{ template.body }}</textarea>
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.3rem;">
+                            <strong>Available Variables:</strong> {user_email}, {username}, {ticket_id}, {subject}, {category}
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 2rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #374151; cursor: pointer;">
+                            <input type="checkbox" name="is_active" {% if template.is_active %}checked{% endif %}
+                                   style="width: 1.2rem; height: 1.2rem; border-radius: 4px; border: 2px solid #d1d5db; accent-color: #4f8cff;">
+                            Active Template
+                        </label>
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.3rem; margin-left: 1.7rem;">
+                            Only active templates will be available for AI recommendations
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 2rem;">
+                        <button type="submit" 
+                                style="background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 0.8rem 1.8rem; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 8px rgba(37,99,235,0.15);">
+                            <i class="fas fa-save" style="margin-right: 0.5rem;"></i>Update Template
+                        </button>
+                        <a href="{{ url_for('main.manage_email_templates') }}" 
+                           style="background: #6b7280; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; transition: background 0.2s;">
+                            <i class="fas fa-arrow-left" style="margin-right: 0.5rem;"></i>Back to Templates
+                        </a>
+                        <a href="{{ url_for('main.manage_template_action_steps', template_id=template.id) }}" 
+                           style="background: #059669; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; transition: background 0.2s;">
+                            <i class="fas fa-tasks" style="margin-right: 0.5rem;"></i>Manage Steps
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Template Information Card -->
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden; margin-top: 2rem;">
+            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
+                <h2 style="color: #374151; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-info-circle" style="color: #4f8cff;"></i>
+                    Template Information
+                </h2>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div>
+                        <div style="margin-bottom: 1rem;">
+                            <div style="font-weight: 600; color: #374151; margin-bottom: 0.25rem;">Created:</div>
+                            <div style="color: #6b7280;">{{ template.created_at.strftime('%B %d, %Y at %I:%M %p') }}</div>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <div style="font-weight: 600; color: #374151; margin-bottom: 0.25rem;">Status:</div>
+                            {% if template.is_active %}
+                                <span style="background: #10b981; color: #fff; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">Active</span>
+                            {% else %}
+                                <span style="background: #6b7280; color: #fff; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">Inactive</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="margin-bottom: 1rem;">
+                            <div style="font-weight: 600; color: #374151; margin-bottom: 0.25rem;">Template ID:</div>
+                            <div style="color: #6b7280;">{{ template.id }}</div>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <div style="font-weight: 600; color: #374151; margin-bottom: 0.25rem;">Created by:</div>
+                            <div style="color: #6b7280;">{{ template.creator.username if template.creator else 'Unknown' }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test AI Recommendation Card -->
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden; margin-top: 2rem;">
+            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
+                <h2 style="color: #374151; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-robot" style="color: #6366f1;"></i>
+                    Test AI Recommendation
+                </h2>
+                <p style="color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1rem;">Test how well this template matches different ticket scenarios</p>
+            </div>
+            <div style="padding: 1.5rem;">
+                <form id="testForm">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                                Test Ticket Subject:
+                            </label>
+                            <input type="text" id="testSubject" 
+                                   style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;"
+                                   placeholder="Enter a sample ticket subject...">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                                Category:
+                            </label>
+                            <input type="text" id="testCategory" 
+                                   style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;"
+                                   placeholder="e.g., Network, Server, Software">
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Test Ticket Description:
+                        </label>
+                        <textarea id="testDescription" rows="3" 
+                                  style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical; transition: border 0.2s;"
+                                  placeholder="Enter a sample ticket description..."></textarea>
+                    </div>
+                    <button type="button" onclick="testTemplate()" 
+                            style="background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s;">
+                        <i class="fas fa-robot" style="margin-right: 0.5rem;"></i>Test AI Recommendation
+                    </button>
+                </form>
+                
+                <div id="testResults" style="display: none; margin-top: 1.5rem;">
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;">
+                    <h3 style="color: #374151; font-size: 1.2rem; font-weight: 600; margin-bottom: 1rem;">Test Results:</h3>
+                    <div id="testContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+input:focus, textarea:focus {
+    outline: none !important;
+    border-color: #4f8cff !important;
+    box-shadow: 0 0 0 3px rgba(79,140,255,0.1) !important;
+}
+
+button:hover {
+    background: #1d4ed8 !important;
+}
+
+a[href]:hover {
+    background: #4b5563 !important;
+}
+
+a[href*="manage_template_action_steps"]:hover {
+    background: #047857 !important;
+}
+
+button[onclick="testTemplate()"]:hover {
+    background: #4f46e5 !important;
+}
+</style>
+
+<script>
+function testTemplate() {
+    const subject = document.getElementById('testSubject').value.trim();
+    const description = document.getElementById('testDescription').value.trim();
+    const category = document.getElementById('testCategory').value.trim();
+    
+    if (!subject || !description) {
+        alert('Please enter both subject and description for testing.');
+        return;
+    }
+    
+    document.getElementById('testContent').innerHTML = '<div style="text-align: center; color: #6b7280; font-style: italic;"><i class="fas fa-spinner fa-spin"></i> Testing AI recommendation...</div>';
+    document.getElementById('testResults').style.display = 'block';
+    
+    fetch('/api/templates/recommend', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            subject: subject,
+            description: description,
+            category: category
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        let resultHtml = '';
+        
+        const currentTemplateName = '{{ template.name }}';
+        const isRecommended = data.recommended_template === currentTemplateName;
+        const confidence = data.confidence || data.template_match_score || 0;
+        
+        if (isRecommended) {
+            resultHtml = `
+                <div style="background: #f0fdf4; border: 1px solid #10b981; border-radius: 8px; padding: 1.5rem;">
+                    <h6 style="color: #10b981; font-weight: 600; margin-bottom: 0.75rem;"><i class="fas fa-check-circle"></i> This template was recommended!</h6>
+                    <div style="color: #374151; margin-bottom: 0.5rem;"><strong>Confidence:</strong> ${Math.round(confidence * 100)}%</div>
+                    <div style="color: #374151;"><strong>Reasoning:</strong> ${data.reasoning}</div>
+                </div>
+            `;
+        } else if (data.recommended_template) {
+            resultHtml = `
+                <div style="background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; padding: 1.5rem;">
+                    <h6 style="color: #f59e0b; font-weight: 600; margin-bottom: 0.75rem;"><i class="fas fa-exclamation-triangle"></i> Different template recommended</h6>
+                    <div style="color: #374151; margin-bottom: 0.5rem;"><strong>Recommended:</strong> ${data.recommended_template}</div>
+                    <div style="color: #374151; margin-bottom: 0.5rem;"><strong>Confidence:</strong> ${Math.round(confidence * 100)}%</div>
+                    <div style="color: #374151;"><strong>Reasoning:</strong> ${data.reasoning}</div>
+                </div>
+            `;
+        } else {
+            resultHtml = `
+                <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 1.5rem;">
+                    <h6 style="color: #0ea5e9; font-weight: 600; margin-bottom: 0.75rem;"><i class="fas fa-info-circle"></i> No template recommended</h6>
+                    <div style="color: #374151;"><strong>Reasoning:</strong> ${data.reasoning}</div>
+                </div>
+            `;
+        }
+        
+        document.getElementById('testContent').innerHTML = resultHtml;
+    })
+    .catch(error => {
+        document.getElementById('testContent').innerHTML = `
+            <div style="background: #fef2f2; border: 1px solid #dc2626; border-radius: 8px; padding: 1.5rem;">
+                <h6 style="color: #dc2626; font-weight: 600; margin-bottom: 0.75rem;"><i class="fas fa-exclamation-circle"></i> Test Failed</h6>
+                <div style="color: #374151;">Error: ${error.message}</div>
+            </div>
+        `;
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}Email Templates{% endblock %}
+
+{% block content %}
+<!-- Success Popup -->
+<div id="success-popup" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 10000; background: #10b981; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-weight: 600; font-size: 1rem; max-width: 300px;">
+    <div id="success-message"></div>
+</div>
+
+<div class="dashboard-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1 style="color: #2563eb; font-size: 2rem; font-weight: 700; margin: 0;">
+            <i class="fas fa-envelope-open-text" style="margin-right: 0.5rem; color: #4f8cff;"></i>
+            Email Template Management
+        </h1>
+        <a href="{{ url_for('main.create_email_template') }}" 
+           style="background: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.7rem 1.5rem; font-weight: 700; box-shadow: 0 2px 8px rgba(37,99,235,0.15); transition: background 0.2s;">
+            <i class="fas fa-plus" style="margin-right: 0.5rem;"></i>Create New Template
+        </a>
+    </div>
+
+    <!-- Template System Overview -->
+    <div class="admin-section" style="margin-bottom: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <h2 style="color: #374151; font-size: 1.2rem; font-weight: 600; margin-bottom: 1rem;">
+            <i class="fas fa-chart-bar" style="margin-right: 0.5rem; color: #4f8cff;"></i>
+            Template System Overview
+        </h2>
+        <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+            <div style="text-align: center; min-width: 120px;">
+                <div style="font-size: 2rem; font-weight: 700; color: #2563eb; margin-bottom: 0.2rem;">
+                    {{ template_data|length }}
+                </div>
+                <div style="font-size: 0.9rem; color: #6b7280; font-weight: 500;">Total Templates</div>
+            </div>
+            <div style="text-align: center; min-width: 120px;">
+                <div style="font-size: 2rem; font-weight: 700; color: #059669; margin-bottom: 0.2rem;">
+                    {{ template_data|selectattr('template.is_active')|list|length }}
+                </div>
+                <div style="font-size: 0.9rem; color: #6b7280; font-weight: 500;">Active Templates</div>
+            </div>
+            <div style="text-align: center; min-width: 120px;">
+                <div style="font-size: 2rem; font-weight: 700; color: #0891b2; margin-bottom: 0.2rem;">
+                    {{ template_data|sum(attribute='step_count') }}
+                </div>
+                <div style="font-size: 0.9rem; color: #6b7280; font-weight: 500;">Total Action Steps</div>
+            </div>
+        </div>
+    </div>
+
+    {% if template_data %}
+    <!-- Email Templates Table -->
+    <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden;">
+        <div style="background: #f8fafc; padding: 1.2rem 1.5rem; border-bottom: 1px solid #e2e8f0;">
+            <h2 style="color: #374151; font-size: 1.2rem; font-weight: 600; margin: 0;">
+                <i class="fas fa-list" style="margin-right: 0.5rem; color: #4f8cff;"></i>
+                Email Templates
+            </h2>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="ticket-table" style="width: 100%; margin: 0;">
+                <thead>
+                    <tr style="background: #f8fafc;">
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0;">Template Name</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0;">Subject</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0;">Use Case</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0;">Status</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0;">Action Steps</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0;">Created</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in template_data %}
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 1rem; vertical-align: top;">
+                            <div style="font-weight: 600; color: #2563eb; font-size: 1rem;">{{ item.template.name }}</div>
+                        </td>
+                        <td style="padding: 1rem; vertical-align: top;">
+                            <div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151;" 
+                                 title="{{ item.template.subject }}">
+                                {{ item.template.subject }}
+                            </div>
+                        </td>
+                        <td style="padding: 1rem; vertical-align: top;">
+                            <div style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6b7280;" 
+                                 title="{{ item.template.use_case_description or 'No description' }}">
+                                {{ item.template.use_case_description or 'No description' }}
+                            </div>
+                        </td>
+                        <td style="padding: 1rem; vertical-align: top;">
+                            {% if item.template.is_active %}
+                                <span style="background: #d1fae5; color: #065f46; padding: 0.3rem 0.7rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600;">Active</span>
+                            {% else %}
+                                <span style="background: #f3f4f6; color: #374151; padding: 0.3rem 0.7rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600;">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem; vertical-align: top;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="background: #dbeafe; color: #1e40af; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">{{ item.step_count }} steps</span>
+                                <a href="{{ url_for('main.manage_template_action_steps', template_id=item.template.id) }}" 
+                                   style="background: #4f8cff; color: #fff; text-decoration: none; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.75rem; font-weight: 600;">
+                                    <i class="fas fa-tasks"></i>
+                                </a>
+                            </div>
+                        </td>
+                        <td style="padding: 1rem; vertical-align: top;">
+                            <div style="font-size: 0.85rem; color: #6b7280;">
+                                {{ item.template.created_at.strftime('%Y-%m-%d') }}
+                            </div>
+                        </td>
+                        <td style="padding: 1rem; vertical-align: top;">
+                            <div style="display: flex; gap: 0.3rem;">
+                                <a href="{{ url_for('main.edit_email_template', template_id=item.template.id) }}" 
+                                   style="background: #4f8cff; color: #fff; text-decoration: none; border-radius: 4px; padding: 0.4rem 0.6rem; font-size: 0.8rem; font-weight: 600; transition: background 0.2s;" 
+                                   title="Edit Template">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button style="background: #0891b2; color: #fff; border: none; border-radius: 4px; padding: 0.4rem 0.6rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.2s;" 
+                                        onclick="previewTemplate({{ item.template.id }})" title="Preview">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button style="background: #dc2626; color: #fff; border: none; border-radius: 4px; padding: 0.4rem 0.6rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.2s;" 
+                                        onclick="deleteTemplate({{ item.template.id }}, '{{ item.template.name }}')" title="Delete Template">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <!-- No Templates Message -->
+    <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); padding: 3rem; text-align: center;">
+        <div style="font-size: 3rem; color: #d1d5db; margin-bottom: 1rem;">
+            <i class="fas fa-envelope-open-text"></i>
+        </div>
+        <h3 style="color: #374151; font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">No Email Templates</h3>
+        <p style="color: #6b7280; font-size: 1rem; margin-bottom: 2rem; max-width: 400px; margin-left: auto; margin-right: auto;">
+            Create your first email template to start using AI-powered ticket responses.
+        </p>
+        <a href="{{ url_for('main.create_email_template') }}" 
+           style="background: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.8rem; font-weight: 700; font-size: 1rem; box-shadow: 0 2px 8px rgba(37,99,235,0.15);">
+            <i class="fas fa-plus" style="margin-right: 0.5rem;"></i>Create First Template
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100vw; height: 100vh; background: rgba(44,62,80,0.18); justify-content: center; align-items: center;">
+    <div style="background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); max-width: 600px; width: 90%; max-height: 80%; overflow: hidden;">
+        <div style="padding: 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="color: #374151; font-weight: 600; margin: 0;">Template Preview</h3>
+            <button onclick="closeModal('previewModal')" style="background: none; border: none; font-size: 1.5rem; color: #6b7280; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 1.5rem; overflow-y: auto; max-height: 60vh;">
+            <div id="previewContent">
+                <div style="text-align: center; color: #6b7280;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test AI Modal -->
+<div id="testAiModal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100vw; height: 100vh; background: rgba(44,62,80,0.18); justify-content: center; align-items: center;">
+    <div style="background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); max-width: 700px; width: 90%; max-height: 90%; overflow: hidden;">
+        <div style="padding: 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="color: #374151; font-weight: 600; margin: 0;">Test AI Template Recommendation</h3>
+            <button onclick="closeModal('testAiModal')" style="background: none; border: none; font-size: 1.5rem; color: #6b7280; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 1.5rem; overflow-y: auto; max-height: 70vh;">
+            <form id="testAiForm">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Test Ticket Subject:</label>
+                    <input type="text" id="testSubject" 
+                           style="width: 100%; padding: 0.7rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff;" 
+                           placeholder="Enter a sample ticket subject...">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Test Ticket Description:</label>
+                    <textarea id="testDescription" rows="4" 
+                              style="width: 100%; padding: 0.7rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical;" 
+                              placeholder="Enter a sample ticket description..."></textarea>
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Category (optional):</label>
+                    <input type="text" id="testCategory" 
+                           style="width: 100%; padding: 0.7rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff;" 
+                           placeholder="e.g., Network, Server, Software">
+                </div>
+            </form>
+            <div id="aiTestResults" style="display: none;">
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;">
+                <h4 style="color: #374151; font-weight: 600; margin-bottom: 1rem;">AI Recommendation Results:</h4>
+                <div id="aiTestContent"></div>
+            </div>
+        </div>
+        <div style="padding: 1.5rem; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 1rem;">
+            <button onclick="closeModal('testAiModal')" 
+                    style="background: #6b7280; color: #fff; border: none; border-radius: 6px; padding: 0.7rem 1.5rem; font-weight: 600; cursor: pointer;">
+                Close
+            </button>
+            <button onclick="runAiTest()" 
+                    style="background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 0.7rem 1.5rem; font-weight: 600; cursor: pointer;">
+                <i class="fas fa-robot" style="margin-right: 0.5rem;"></i>Test AI Recommendation
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function previewTemplate(templateId) {
+    showModal('previewModal');
+    document.getElementById('previewContent').innerHTML = '<div style="text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    
+    // You can implement template preview here
+    setTimeout(() => {
+        document.getElementById('previewContent').innerHTML = '<p style="color: #6b7280;">Template preview functionality coming soon...</p>';
+    }, 1000);
+}
+
+function testTemplate(templateName) {
+    showModal('testAiModal');
+    document.getElementById('testAiModal').setAttribute('data-template-name', templateName);
+    document.getElementById('aiTestResults').style.display = 'none';
+    
+    // Pre-fill with sample data for VPN template
+    if (templateName.toLowerCase().includes('vpn')) {
+        document.getElementById('testSubject').value = 'Need VPN access for remote work';
+        document.getElementById('testDescription').value = 'Hi, I need VPN access to connect to the company network from home. I work in the marketing department and need access to shared drives.';
+        document.getElementById('testCategory').value = 'Network';
+    }
+}
+
+function runAiTest() {
+    const subject = document.getElementById('testSubject').value.trim();
+    const description = document.getElementById('testDescription').value.trim();
+    const category = document.getElementById('testCategory').value.trim();
+    
+    if (!subject || !description) {
+        alert('Please enter both subject and description for testing.');
+        return;
+    }
+    
+    document.getElementById('aiTestContent').innerHTML = '<div style="text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Testing AI recommendation...</div>';
+    document.getElementById('aiTestResults').style.display = 'block';
+    
+    fetch('/api/templates/recommend', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            subject: subject,
+            description: description,
+            category: category
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        let resultHtml = '';
+        
+        if (data.recommended_template) {
+            resultHtml = `
+                <div style="background: #d1fae5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <h5 style="color: #065f46; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-check-circle"></i> Recommended Template: <strong>${data.recommended_template}</strong>
+                    </h5>
+                    <p style="margin-bottom: 0.5rem; color: #065f46;"><strong>Confidence:</strong> ${Math.round(data.confidence * 100)}%</p>
+                    <p style="margin-bottom: 0.5rem; color: #065f46;"><strong>Reasoning:</strong> ${data.reasoning}</p>
+                    ${data.alternative_templates && data.alternative_templates.length > 0 ? 
+                        `<p style="margin: 0; color: #065f46;"><strong>Alternatives:</strong> ${data.alternative_templates.join(', ')}</p>` : ''}
+                </div>
+            `;
+        } else {
+            resultHtml = `
+                <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <h5 style="color: #92400e; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-exclamation-triangle"></i> No Template Recommended
+                    </h5>
+                    <p style="margin-bottom: 0.5rem; color: #92400e;"><strong>Reasoning:</strong> ${data.reasoning}</p>
+                    <p style="margin: 0; color: #92400e;"><strong>Available Templates:</strong> ${data.templates_available ? data.templates_available.join(', ') : 'None'}</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('aiTestContent').innerHTML = resultHtml;
+    })
+    .catch(error => {
+        document.getElementById('aiTestContent').innerHTML = `
+            <div style="background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                <h5 style="color: #991b1b; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-exclamation-circle"></i> Test Failed
+                </h5>
+                <p style="margin: 0; color: #991b1b;">Error: ${error.message}</p>
+            </div>
+        `;
+    });
+}
+
+function showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    if (event.target.id === 'previewModal' || event.target.id === 'testAiModal') {
+        closeModal(event.target.id);
+    }
+});
+
+// Delete template function
+function deleteTemplate(templateId, templateName) {
+    if (confirm(`Are you sure you want to delete the template "${templateName}"? This action cannot be undone.`)) {
+        fetch(`/admin/email-templates/${templateId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessPopup(data.message);
+                // Reload the page after a short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                alert('Error deleting template: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error deleting template: ' + error.message);
+        });
+    }
+}
+
+// Success popup functionality
+function showSuccessPopup(message) {
+    const popup = document.getElementById('success-popup');
+    const messageElement = document.getElementById('success-message');
+    
+    messageElement.textContent = message;
+    popup.style.display = 'block';
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        popup.style.display = 'none';
+    }, 3000);
+}
+
+// Show popup if there are flash messages
+document.addEventListener('DOMContentLoaded', function() {
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                showSuccessPopup('{{ message }}');
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+});
+</script>
+{% endblock %}

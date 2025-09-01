@@ -115,6 +115,53 @@ class SystemSettings(db.Model):
         return os.getenv('OPENAI_API_KEY')
 
 
+class EmailTemplate(db.Model):
+    """Email templates for automated responses"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False, unique=True)
+    subject = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    use_case_description = db.Column(db.Text, nullable=True)  # When to use this template
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationship to action steps
+    action_steps = db.relationship('TemplateActionStep', backref='template', lazy=True, cascade='all, delete-orphan')
+    
+    creator = db.relationship('User', backref='created_templates')
+
+
+class TemplateActionStep(db.Model):
+    """Action steps associated with email templates"""
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=False)
+    step_order = db.Column(db.Integer, nullable=False)  # Order of execution
+    step_type = db.Column(db.String(50), nullable=False)  # 'manual', 'web_action', 'api_call', etc.
+    step_title = db.Column(db.String(200), nullable=False)
+    step_description = db.Column(db.Text, nullable=False)
+    step_config = db.Column(db.Text, nullable=True)  # JSON config for automated steps
+    is_automated = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class TicketTemplateRecommendation(db.Model):
+    """AI recommendations for email templates on tickets"""
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey('ticket.id'), nullable=False)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=True)
+    confidence_score = db.Column(db.Float, nullable=True)  # AI confidence (0-1)
+    ai_reasoning = db.Column(db.Text, nullable=True)  # Why AI recommended this template
+    is_user_selected = db.Column(db.Boolean, default=False)  # Did user manually select this?
+    selected_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    ticket = db.relationship('Ticket', backref='template_recommendations')
+    template = db.relationship('EmailTemplate', backref='recommendations')
+    selector = db.relationship('User', backref='template_selections')
+
+
 class Log(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)

@@ -3,7 +3,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField
 from wtforms.validators import DataRequired, Length
 from flask_login import login_user, login_required, logout_user, current_user
-from app.models import User, Ticket, db, Category
+from app.models import User, Ticket, db, Category, SystemSettings, EmailTemplate, TemplateActionStep, TicketTemplateRecommendation
 from app.models import Log as TicketLog
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -2049,3 +2049,274 @@ Content-Transfer-Encoding: 8bit
     response.headers['Content-Disposition'] = f'attachment; filename="ticket_{ticket.id}.eml"'
     
     return response
+
+
+# ============================================================================
+# EMAIL TEMPLATE MANAGEMENT - Admin Interface for Template Configuration
+# ============================================================================
+
+@main.route('/admin/email-templates')
+@login_required
+def manage_email_templates():
+    """Admin interface for managing email templates"""
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('main.home'))
+    
+    from .models import EmailTemplate, TemplateActionStep
+    
+    templates = EmailTemplate.query.order_by(EmailTemplate.created_at.desc()).all()
+    
+    # Get action step counts for each template
+    template_data = []
+    for template in templates:
+        step_count = TemplateActionStep.query.filter_by(template_id=template.id).count()
+        template_data.append({
+            'template': template,
+            'step_count': step_count
+        })
+    
+    return render_template('admin/email_templates.html', template_data=template_data)
+
+@main.route('/admin/email-templates/new', methods=['GET', 'POST'])
+@login_required
+def create_email_template():
+    """Create a new email template"""
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('main.home'))
+    
+    from .models import EmailTemplate
+    
+    if request.method == 'POST':
+        try:
+            template = EmailTemplate(
+                name=request.form['name'],
+                subject=request.form['subject'],
+                body=request.form['body'],
+                use_case_description=request.form.get('use_case_description', ''),
+                is_active=request.form.get('is_active') == 'on',
+                created_by=current_user.id
+            )
+            
+            db.session.add(template)
+            db.session.commit()
+            
+            # Add audit log
+            log = TicketLog(
+                user=current_user.username,
+                action='template_create',
+                details=f'Created email template: {template.name}'
+            )
+            db.session.add(log)
+            db.session.commit()
+            
+            flash('Email template created successfully!', 'success')
+            return redirect(url_for('main.manage_email_templates'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating template: {str(e)}', 'error')
+    
+    return render_template('admin/create_email_template.html')
+
+@main.route('/admin/email-templates/<int:template_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_email_template(template_id):
+    """Edit an email template"""
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('main.home'))
+    
+    from .models import EmailTemplate
+    
+    template = EmailTemplate.query.get_or_404(template_id)
+    
+    if request.method == 'POST':
+        try:
+            template.name = request.form['name']
+            template.subject = request.form['subject']
+            template.body = request.form['body']
+            template.use_case_description = request.form.get('use_case_description', '')
+            template.is_active = request.form.get('is_active') == 'on'
+            
+            db.session.commit()
+            
+            # Add audit log
+            log = TicketLog(
+                user=current_user.username,
+                action='template_update',
+                details=f'Updated email template: {template.name}'
+            )
+            db.session.add(log)
+            db.session.commit()
+            
+            flash('Email template updated successfully!', 'success')
+            return redirect(url_for('main.manage_email_templates'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating template: {str(e)}', 'error')
+    
+    return render_template('admin/edit_email_template.html', template=template)
+
+@main.route('/admin/email-templates/<int:template_id>/delete', methods=['DELETE'])
+@csrf.exempt
+@login_required
+def delete_email_template(template_id):
+    """Delete an email template"""
+    if current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'You do not have permission to perform this action.'}), 403
+    
+    template = EmailTemplate.query.get_or_404(template_id)
+    
+    try:
+        # Delete associated action steps first
+        TemplateActionStep.query.filter_by(template_id=template_id).delete()
+        
+        # Delete template recommendations
+        TicketTemplateRecommendation.query.filter_by(template_id=template_id).delete()
+        
+        # Store template name for logging before deletion
+        template_name = template.name
+        
+        # Delete the template
+        db.session.delete(template)
+        db.session.commit()
+        
+        # Add audit log
+        log = TicketLog(
+            user=current_user.username,
+            action='template_delete',
+            details=f'Deleted email template: {template_name}'
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Template deleted successfully!'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error deleting template: {str(e)}'}), 500
+
+@main.route('/admin/email-templates/<int:template_id>/action-steps')
+@login_required
+def manage_template_action_steps(template_id):
+    """Manage action steps for an email template"""
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('main.home'))
+    
+    from .models import EmailTemplate, TemplateActionStep
+    
+    template = EmailTemplate.query.get_or_404(template_id)
+    action_steps = TemplateActionStep.query.filter_by(template_id=template_id).order_by(TemplateActionStep.step_order).all()
+    
+    return render_template('admin/template_action_steps.html', template=template, action_steps=action_steps)
+
+@main.route('/admin/email-templates/<int:template_id>/action-steps/new', methods=['GET', 'POST'])
+@login_required
+def create_action_step(template_id):
+    """Create a new action step for a template"""
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('main.home'))
+    
+    from .models import EmailTemplate, TemplateActionStep
+    
+    template = EmailTemplate.query.get_or_404(template_id)
+    
+    if request.method == 'POST':
+        try:
+            # Get the next order number
+            max_order = db.session.query(db.func.max(TemplateActionStep.step_order)).filter_by(template_id=template_id).scalar() or 0
+            
+            action_step = TemplateActionStep(
+                template_id=template_id,
+                step_order=max_order + 1,
+                step_type=request.form['step_type'],
+                step_title=request.form['step_title'],
+                step_description=request.form['step_description'],
+                is_automated=request.form.get('is_automated') == 'on',
+                step_config=request.form.get('step_config', '{}') if request.form.get('step_config') else '{}'
+            )
+            
+            db.session.add(action_step)
+            db.session.commit()
+            
+            # Add audit log
+            log = TicketLog(
+                user=current_user.username,
+                action='action_step_create',
+                details=f'Created action step for template: {template.name}'
+            )
+            db.session.add(log)
+            db.session.commit()
+            
+            flash('Action step created successfully!', 'success')
+            return redirect(url_for('main.manage_template_action_steps', template_id=template_id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating action step: {str(e)}', 'error')
+    
+    return render_template('admin/create_action_step.html', template=template)
+
+@main.route('/api/templates/recommend', methods=['POST'])
+@csrf.exempt
+@login_required
+def recommend_template():
+    """API endpoint for getting AI template recommendations"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'subject' not in data or 'description' not in data:
+            return jsonify({'error': 'Subject and description are required'}), 400
+        
+        from .ai_service import get_ai_service
+        ai_service = get_ai_service()
+        
+        if not ai_service:
+            return jsonify({'error': 'AI service not available'}), 503
+        
+        recommendation = ai_service.recommend_email_template(
+            ticket_subject=data['subject'],
+            ticket_description=data['description'],
+            ticket_category=data.get('category')
+        )
+        
+        return jsonify(recommendation)
+        
+    except Exception as e:
+        logging.error(f"Template recommendation error: {e}")
+        return jsonify({'error': f'Recommendation failed: {str(e)}'}), 500
+
+@main.route('/api/templates/<template_name>/action-steps', methods=['POST'])
+@csrf.exempt
+@login_required
+def get_template_action_steps(template_name):
+    """API endpoint for getting action steps for a template"""
+    try:
+        data = request.get_json()
+        
+        ticket_context = {
+            'subject': data.get('subject', ''),
+            'description': data.get('description', ''),
+            'category': data.get('category', ''),
+            'sender': data.get('sender', ''),
+            'id': data.get('ticket_id')
+        }
+        
+        from .ai_service import get_ai_service
+        ai_service = get_ai_service()
+        
+        if not ai_service:
+            return jsonify({'error': 'AI service not available'}), 503
+        
+        action_steps = ai_service.generate_template_action_steps(template_name, ticket_context)
+        
+        return jsonify({'action_steps': action_steps})
+        
+    except Exception as e:
+        logging.error(f"Action steps error: {e}")
+        return jsonify({'error': f'Action steps generation failed: {str(e)}'}), 500

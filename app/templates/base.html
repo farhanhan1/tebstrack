@@ -520,6 +520,10 @@
       <span class="sidenav-icon">👥</span>
       <span class="sidenav-label">Users</span>
     </a>
+    <a href="{{ url_for('main.manage_email_templates') }}" class="sidenav-link{% if request.endpoint in ['main.manage_email_templates', 'main.create_email_template', 'main.edit_email_template', 'main.manage_template_action_steps', 'main.create_action_step'] %} active{% endif %}" data-label="Templates">
+      <span class="sidenav-icon">📧</span>
+      <span class="sidenav-label">Templates</span>
+    </a>
     <a href="{{ url_for('main.audit_logs') }}" class="sidenav-link{% if request.endpoint == 'main.audit_logs' %} active{% endif %}" data-label="Logs">
       <span class="sidenav-icon">📜</span>
       <span class="sidenav-label">Logs</span>

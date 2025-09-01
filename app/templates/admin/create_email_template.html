@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Create Email Template{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div style="max-width: 800px; margin: 0 auto;">
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden;">
+            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
+                <h1 style="color: #2563eb; font-size: 1.8rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-plus" style="color: #4f8cff;"></i>
+                    Create New Email Template
+                </h1>
+                <p style="color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1rem;">Create a reusable email template for common support responses</p>
+            </div>
+            <div style="padding: 2rem;">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Template Name <span style="color: #dc2626;">*</span>
+                        </label>
+                        <input type="text" name="name" required
+                               style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;"
+                               placeholder="e.g., VPN Account Creation, Password Reset, Server Access">
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.3rem;">
+                            Use a descriptive name that clearly identifies the template's purpose
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Email Subject <span style="color: #dc2626;">*</span>
+                        </label>
+                        <input type="text" name="subject" required
+                               style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;"
+                               placeholder="e.g., Your VPN Account Has Been Created">
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.3rem;">
+                            The subject line for emails sent using this template
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Use Case Description
+                        </label>
+                        <textarea name="use_case_description" rows="2"
+                                  style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical; transition: border 0.2s;"
+                                  placeholder="Describe when this template should be used..."></textarea>
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.3rem;">
+                            Help the AI understand when to recommend this template (e.g., "Use for VPN access requests, remote connectivity issues, network access setup")
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                            Email Body <span style="color: #dc2626;">*</span>
+                        </label>
+                        <textarea name="body" rows="12" required
+                                  style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical; transition: border 0.2s; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"
+                                  placeholder="Write the email content here..."></textarea>
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.3rem;">
+                            <strong>Available Variables:</strong> {user_email}, {username}, {ticket_id}, {subject}, {category}
+                            <br>Example: "Hi {username}, your VPN account has been created..."
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 2rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #374151; cursor: pointer;">
+                            <input type="checkbox" name="is_active" checked
+                                   style="width: 1.2rem; height: 1.2rem; border-radius: 4px; border: 2px solid #d1d5db; accent-color: #4f8cff;">
+                            Active Template
+                        </label>
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.3rem; margin-left: 1.7rem;">
+                            Only active templates will be available for AI recommendations
+                        </div>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 2rem 0;">
+
+                    <!-- Tips Section -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                        <div>
+                            <h3 style="color: #374151; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-lightbulb" style="color: #f59e0b;"></i>
+                                Template Tips
+                            </h3>
+                            <ul style="color: #6b7280; font-size: 0.9rem; line-height: 1.6; margin: 0; padding-left: 1.2rem;">
+                                <li>Use clear, professional language</li>
+                                <li>Include all necessary information</li>
+                                <li>Use variables for personalization</li>
+                                <li>Test with different ticket scenarios</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 style="color: #374151; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-robot" style="color: #6366f1;"></i>
+                                AI Recommendations
+                            </h3>
+                            <ul style="color: #6b7280; font-size: 0.9rem; line-height: 1.6; margin: 0; padding-left: 1.2rem;">
+                                <li>Use specific keywords in the use case</li>
+                                <li>Mention related terms and variations</li>
+                                <li>Include common user phrases</li>
+                                <li>Test AI matching after creation</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <button type="submit" 
+                                style="background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 0.8rem 1.8rem; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 8px rgba(37,99,235,0.15);">
+                            <i class="fas fa-save" style="margin-right: 0.5rem;"></i>Create Template
+                        </button>
+                        <a href="{{ url_for('main.manage_email_templates') }}" 
+                           style="background: #6b7280; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; transition: background 0.2s;">
+                            <i class="fas fa-times" style="margin-right: 0.5rem;"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+input:focus, textarea:focus {
+    outline: none !important;
+    border-color: #4f8cff !important;
+    box-shadow: 0 0 0 3px rgba(79,140,255,0.1) !important;
+}
+
+button[type="submit"]:hover {
+    background: #1d4ed8 !important;
+}
+
+a[href]:hover {
+    background: #4b5563 !important;
+}
+</style>
+{% endblock %}

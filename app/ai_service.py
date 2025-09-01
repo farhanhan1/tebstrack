@@ -868,6 +868,236 @@ INFRA TEAM CONTEXT-AWARE MODE:
 
 INFRA TEAM HELP MODE: Provide clear, helpful answers about TeBSTrack features and infrastructure team workflow. Actively use the KNOWLEDGE BASE to answer questions about procedures, troubleshooting, and solutions. Help infra team members manage tickets and resolve user requests efficiently using documented guidance."""
 
+    def recommend_email_template(self, ticket_subject: str, ticket_description: str, ticket_category: str = None) -> Dict[str, any]:
+        """
+        Use AI to recommend the most appropriate email template for a ticket
+        """
+        from .models import EmailTemplate
+        
+        # Get available templates from database
+        active_templates = EmailTemplate.query.filter_by(is_active=True).all()
+        if not active_templates:
+            return {
+                "recommended_template": None,
+                "confidence": 0.0,
+                "reasoning": "No email templates configured in the system",
+                "templates_available": []
+            }
+        
+        # Build templates description for AI
+        templates_info = {}
+        for template in active_templates:
+            templates_info[template.name] = {
+                "subject": template.subject,
+                "use_case": template.use_case_description or "General use",
+                "body_preview": template.body[:200] + "..." if len(template.body) > 200 else template.body
+            }
+        
+        # Get template selection guidance from system settings
+        template_guide = self._get_template_selection_guide()
+        
+        prompt = f"""
+Analyze this support ticket and recommend the most appropriate email template:
+
+TICKET INFORMATION:
+Subject: {ticket_subject}
+Description: {ticket_description}
+Category: {ticket_category or "Not specified"}
+
+AVAILABLE EMAIL TEMPLATES:
+{json.dumps(templates_info, indent=2)}
+
+TEMPLATE SELECTION GUIDE:
+{template_guide}
+
+ANALYSIS REQUIREMENTS:
+1. Match ticket content to template purpose and use cases
+2. Consider the specific request type and category
+3. Look for keywords that indicate template relevance  
+4. Evaluate how well each template would address the user's request
+5. If no template is clearly suitable, explain why
+
+Respond with JSON:
+{{
+    "recommended_template": "exact template name or null",
+    "confidence": 0.85,
+    "reasoning": "detailed explanation of why this template fits or why no template is suitable",
+    "alternative_templates": ["list of other potentially relevant templates"],
+    "template_match_score": 0.85
+}}
+"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an expert email template recommendation system. Analyze support tickets and suggest the most appropriate response template based on content analysis and use case matching."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,  # Low temperature for consistent recommendations
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            result["templates_available"] = [t.name for t in active_templates]
+            return result
+            
+        except Exception as e:
+            logging.error(f"Template recommendation failed: {e}")
+            return {
+                "recommended_template": None,
+                "confidence": 0.0,
+                "reasoning": f"AI recommendation failed: {str(e)}",
+                "templates_available": [t.name for t in active_templates],
+                "alternative_templates": [],
+                "template_match_score": 0.0
+            }
+
+    def _get_template_selection_guide(self) -> str:
+        """Get the template selection guide from system settings"""
+        from .models import SystemSettings
+        
+        guide = SystemSettings.get_setting('email_template_guide', '')
+        if not guide:
+            # Default guide if none configured
+            guide = """
+TEMPLATE SELECTION GUIDELINES:
+
+1. VPN Account Creation: Use for VPN access requests, remote access setup, network connectivity issues
+2. Password Reset: Use for password reset requests, account lockouts, authentication problems
+3. Software Installation: Use for software requests, application installations, license requests
+4. Hardware Request: Use for hardware requests, equipment issues, device replacements, repairs
+5. Server Access: Use for server access requests, database permissions, system access rights
+6. General Response: Use for general inquiries, acknowledgments, status updates, miscellaneous requests
+
+SELECTION CRITERIA:
+- Match specific keywords in the request to template purpose
+- Consider the technical complexity of the request
+- Evaluate if the template provides appropriate information for the user's needs
+- If multiple templates could work, choose the most specific one
+- Only recommend a template if there's a clear match (confidence > 0.7)
+"""
+        
+        return guide
+
+    def generate_template_action_steps(self, template_name: str, ticket_context: Dict[str, any]) -> List[Dict[str, any]]:
+        """
+        Generate AI-suggested action steps for a template based on ticket context
+        """
+        from .models import EmailTemplate, TemplateActionStep
+        
+        # Get the template and its existing action steps
+        template = EmailTemplate.query.filter_by(name=template_name, is_active=True).first()
+        if not template:
+            return []
+        
+        existing_steps = TemplateActionStep.query.filter_by(template_id=template.id).order_by(TemplateActionStep.step_order).all()
+        
+        # If template has configured steps, return those with any dynamic content filled in
+        if existing_steps:
+            return self._customize_action_steps(existing_steps, ticket_context)
+        
+        # If no configured steps, generate AI suggestions
+        return self._generate_ai_action_steps(template, ticket_context)
+
+    def _customize_action_steps(self, steps: List, ticket_context: Dict[str, any]) -> List[Dict[str, any]]:
+        """Customize existing action steps with ticket-specific information"""
+        customized_steps = []
+        
+        for step in steps:
+            step_data = {
+                "id": step.id,
+                "order": step.step_order,
+                "type": step.step_type,
+                "title": step.step_title,
+                "description": step.step_description,
+                "is_automated": step.is_automated,
+                "config": json.loads(step.step_config) if step.step_config else {}
+            }
+            
+            # Customize step description with ticket context
+            step_data["description"] = self._apply_ticket_variables(step_data["description"], ticket_context)
+            
+            customized_steps.append(step_data)
+        
+        return customized_steps
+
+    def _apply_ticket_variables(self, text: str, ticket_context: Dict[str, any]) -> str:
+        """Apply ticket variables to step descriptions"""
+        variables = {
+            "{user_email}": ticket_context.get("sender", "user@example.com"),
+            "{username}": ticket_context.get("sender", "user@example.com").split("@")[0] if "@" in ticket_context.get("sender", "") else "username",
+            "{ticket_id}": str(ticket_context.get("id", "N/A")),
+            "{subject}": ticket_context.get("subject", ""),
+            "{category}": ticket_context.get("category", "")
+        }
+        
+        result = text
+        for var, value in variables.items():
+            result = result.replace(var, value)
+        
+        return result
+
+    def _generate_ai_action_steps(self, template, ticket_context: Dict[str, any]) -> List[Dict[str, any]]:
+        """Generate AI-suggested action steps when none are configured"""
+        
+        prompt = f"""
+Generate specific action steps for resolving this support ticket using the "{template.name}" email template:
+
+TICKET DETAILS:
+Subject: {ticket_context.get('subject', '')}
+Description: {ticket_context.get('description', '')}
+Category: {ticket_context.get('category', '')}
+Requested by: {ticket_context.get('sender', '')}
+
+TEMPLATE INFORMATION:
+Name: {template.name}
+Purpose: {template.use_case_description}
+Email Subject: {template.subject}
+
+Generate 3-5 specific, actionable steps that an infrastructure team member should take to resolve this request. Focus on practical actions, not just "send email".
+
+Respond with JSON:
+{{
+    "action_steps": [
+        {{
+            "order": 1,
+            "title": "Step Title",
+            "description": "Detailed description of what to do",
+            "type": "manual",
+            "is_automated": false
+        }}
+    ]
+}}
+"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an IT workflow expert. Generate specific, actionable steps for infrastructure team members to resolve support requests."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            return result.get("action_steps", [])
+            
+        except Exception as e:
+            logging.error(f"Action step generation failed: {e}")
+            return [
+                {
+                    "order": 1,
+                    "title": f"Process {template.name} Request",
+                    "description": f"Follow standard procedure for {template.name.lower()} as described in the email template.",
+                    "type": "manual",
+                    "is_automated": False
+                }
+            ]
+
+
 # Global AI service instance (lazy-loaded)
 _ai_service = None
 
