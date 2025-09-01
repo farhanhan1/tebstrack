@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Create Action Step - {{ template.name }}{% endblock %}
+{% block title %}Edit Action Step - {{ template.name }}{% endblock %}
 
 {% block content %}
 <!-- Success Popup -->
@@ -16,10 +16,10 @@
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h1 style="color: #2563eb; font-size: 1.8rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fas fa-plus" style="color: #4f8cff;"></i>
-                            Create Action Step
+                            <i class="fas fa-edit" style="color: #4f8cff;"></i>
+                            Edit Action Step
                         </h1>
-                        <p style="color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1rem;">Add a workflow step for template: <strong>{{ template.name }}</strong></p>
+                        <p style="color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1rem;">Editing step for template: <strong>{{ template.name }}</strong></p>
                     </div>
                     <a href="{{ url_for('main.manage_template_action_steps', template_id=template.id) }}" 
                        style="background: #6b7280; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; transition: background 0.2s;">
@@ -29,12 +29,12 @@
             </div>
         </div>
 
-        <!-- Create Form -->
+        <!-- Edit Form -->
         <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden; margin-bottom: 2rem;">
             <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
                 <h2 style="color: #374151; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="fas fa-edit" style="color: #4f8cff;"></i>
-                    Step Details
+                    <i class="fas fa-cog" style="color: #4f8cff;"></i>
+                    Step Configuration
                 </h2>
             </div>
             <div style="padding: 2rem;">
@@ -46,6 +46,7 @@
                                 Step Title <span style="color: #dc2626;">*</span>
                             </label>
                             <input type="text" id="step_title" name="step_title" required
+                                   value="{{ step.step_title }}"
                                    style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;"
                                    placeholder="e.g., Create VPN Account, Send Login Credentials, Verify Access">
                         </div>
@@ -56,11 +57,11 @@
                             <select id="step_type" name="step_type" required
                                     style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; transition: border 0.2s;">
                                 <option value="">Select step type...</option>
-                                <option value="manual">Manual - Requires human action</option>
-                                <option value="automated">Automated - Can be done by system</option>
-                                <option value="verification">Verification - Check or confirm something</option>
-                                <option value="communication">Communication - Send email/notification</option>
-                                <option value="documentation">Documentation - Record or log information</option>
+                                <option value="manual" {% if step.step_type == 'manual' %}selected{% endif %}>Manual - Requires human action</option>
+                                <option value="automated" {% if step.step_type == 'automated' %}selected{% endif %}>Automated - Can be done by system</option>
+                                <option value="verification" {% if step.step_type == 'verification' %}selected{% endif %}>Verification - Check or confirm something</option>
+                                <option value="communication" {% if step.step_type == 'communication' %}selected{% endif %}>Communication - Send email/notification</option>
+                                <option value="documentation" {% if step.step_type == 'documentation' %}selected{% endif %}>Documentation - Record or log information</option>
                             </select>
                         </div>
                     </div>
@@ -71,7 +72,7 @@
                         </label>
                         <textarea id="step_description" name="step_description" rows="4" required
                                   style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical; transition: border 0.2s;"
-                                  placeholder="Detailed description of what needs to be done in this step..."></textarea>
+                                  placeholder="Detailed description of what needs to be done in this step...">{{ step.step_description }}</textarea>
                         <div style="color: #6b7280; font-size: 0.9rem; margin-top: 0.5rem;">
                             <strong>Available Variables:</strong> {user_email}, {username}, {ticket_id}, {subject}, {category}<br>
                             Be specific about the actions required and any tools or systems to use.
@@ -81,6 +82,7 @@
                     <div style="margin-bottom: 1.5rem;">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox" id="is_automated" name="is_automated" 
+                                   {% if step.is_automated %}checked{% endif %}
                                    style="width: 1.2rem; height: 1.2rem;">
                             <label for="is_automated" style="color: #374151; font-weight: 500;">
                                 This step can be automated
@@ -97,7 +99,7 @@
                         </label>
                         <textarea id="step_config" name="step_config" rows="3"
                                   style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; resize: vertical; transition: border 0.2s; font-family: 'Courier New', monospace;"
-                                  placeholder='{"url": "203.125.240.11/login", "timeout": 300, "requires_verification": true}'></textarea>
+                                  placeholder='{"url": "203.125.240.11/login", "timeout": 300, "requires_verification": true}'>{{ step.step_config if step.step_config != '{}' else '' }}</textarea>
                         <div style="color: #6b7280; font-size: 0.9rem; margin-top: 0.5rem;">
                             JSON configuration for automated steps (URLs, timeouts, parameters, etc.)
                         </div>
@@ -106,7 +108,7 @@
                     <div style="display: flex; gap: 1rem;">
                         <button type="submit" 
                                 style="background: #059669; color: #fff; border: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s;">
-                            <i class="fas fa-save" style="margin-right: 0.5rem;"></i>Create Action Step
+                            <i class="fas fa-save" style="margin-right: 0.5rem;"></i>Update Action Step
                         </button>
                         <a href="{{ url_for('main.manage_template_action_steps', template_id=template.id) }}" 
                            style="background: #6b7280; color: #fff; text-decoration: none; border-radius: 6px; padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; transition: background 0.2s;">
@@ -117,99 +119,38 @@
             </div>
         </div>
 
-        <!-- Template Context Card -->
-        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden; margin-bottom: 2rem;">
+        <!-- Current Step Info -->
+        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden;">
             <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
                 <h2 style="color: #374151; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
                     <i class="fas fa-info-circle" style="color: #4f8cff;"></i>
-                    Template Context
+                    Current Step Information
                 </h2>
             </div>
             <div style="padding: 1.5rem;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem;">
+                    <div>
+                        <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Step Order:</div>
+                        <div style="color: #6b7280; font-size: 1.2rem; font-weight: 600;">{{ step.step_order }}</div>
+                    </div>
                     <div>
                         <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Template:</div>
                         <div style="color: #6b7280;">{{ template.name }}</div>
                     </div>
                     <div>
-                        <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Use Case:</div>
-                        <div style="color: #6b7280;">{{ template.use_case_description or 'No description provided' }}</div>
+                        <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Current Type:</div>
+                        <div style="color: #6b7280;">{{ step.step_type.title() }}</div>
                     </div>
                     <div>
-                        <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Email Subject:</div>
-                        <div style="color: #6b7280;">{{ template.subject }}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sample Action Steps Card -->
-        <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(79,140,255,0.08), 0 1.5px 8px rgba(0,0,0,0.04); overflow: hidden;">
-            <div style="background: #f8fafc; padding: 1.5rem; border-bottom: 1px solid #e2e8f0;">
-                <h2 style="color: #374151; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="fas fa-lightbulb" style="color: #f59e0b;"></i>
-                    Sample Action Steps
-                </h2>
-                <p style="color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1rem;">Click the buttons below to load sample step templates</p>
-            </div>
-            <div style="padding: 1.5rem;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 1.5rem;">
-                    <div>
-                        <h3 style="color: #374151; font-size: 1.2rem; font-weight: 600; margin-bottom: 1rem;">VPN Account Creation Steps:</h3>
-                        <div style="color: #6b7280; font-size: 0.9rem; space-y: 0.75rem;">
-                            <div style="margin-bottom: 0.75rem;">
-                                <div style="font-weight: 600; color: #374151;">1. Navigate to VPN Portal</div>
-                                <div>Go to 203.125.240.11/login and access the admin panel</div>
-                            </div>
-                            <div style="margin-bottom: 0.75rem;">
-                                <div style="font-weight: 600; color: #374151;">2. Create User Account</div>
-                                <div>Create new user with email {user_email} as username</div>
-                            </div>
-                            <div style="margin-bottom: 0.75rem;">
-                                <div style="font-weight: 600; color: #374151;">3. Generate Password</div>
-                                <div>Generate secure 12-character password and save credentials</div>
-                            </div>
-                            <div style="margin-bottom: 0.75rem;">
-                                <div style="font-weight: 600; color: #374151;">4. Send Credentials</div>
-                                <div>Email credentials to user with setup instructions</div>
-                            </div>
+                        <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Automation:</div>
+                        <div style="color: {% if step.is_automated %}#10b981{% else %}#6b7280{% endif %};">
+                            {% if step.is_automated %}
+                                <i class="fas fa-robot"></i> Automated
+                            {% else %}
+                                <i class="fas fa-user"></i> Manual
+                            {% endif %}
                         </div>
                     </div>
-                    <div>
-                        <h3 style="color: #374151; font-size: 1.2rem; font-weight: 600; margin-bottom: 1rem;">Password Reset Steps:</h3>
-                        <div style="color: #6b7280; font-size: 0.9rem;">
-                            <div style="margin-bottom: 0.75rem;">
-                                <div style="font-weight: 600; color: #374151;">1. Verify Identity</div>
-                                <div>Confirm user identity through security questions</div>
-                            </div>
-                            <div style="margin-bottom: 0.75rem;">
-                                <div style="font-weight: 600; color: #374151;">2. Reset Password</div>
-                                <div>Generate temporary password in system</div>
-                            </div>
-                            <div style="margin-bottom: 0.75rem;">
-                                <div style="font-weight: 600; color: #374151;">3. Send Instructions</div>
-                                <div>Email temporary password and reset instructions</div>
-                            </div>
-                            <div style="margin-bottom: 0.75rem;">
-                                <div style="font-weight: 600; color: #374151;">4. Follow Up</div>
-                                <div>Check that user successfully changed password</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <button type="button" onclick="loadSampleStep('vpn_navigate')"
-                            style="background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1rem; font-weight: 500; font-size: 0.9rem; cursor: pointer; transition: background 0.2s;">
-                        Load VPN Navigation Step
-                    </button>
-                    <button type="button" onclick="loadSampleStep('vpn_create')"
-                            style="background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1rem; font-weight: 500; font-size: 0.9rem; cursor: pointer; transition: background 0.2s;">
-                        Load VPN Account Creation
-                    </button>
-                    <button type="button" onclick="loadSampleStep('password_reset')"
-                            style="background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1rem; font-weight: 500; font-size: 0.9rem; cursor: pointer; transition: background 0.2s;">
-                        Load Password Reset
-                    </button>
                 </div>
             </div>
         </div>
@@ -227,10 +168,6 @@ button:hover {
     background: #047857 !important;
 }
 
-button[onclick]:hover {
-    background: #2563eb !important;
-}
-
 a[href]:hover {
     background: #4b5563 !important;
 }
@@ -245,34 +182,6 @@ a[href]:hover {
 </style>
 
 <script>
-function loadSampleStep(type) {
-    switch(type) {
-        case 'vpn_navigate':
-            document.getElementById('step_title').value = 'Navigate to VPN Management Portal';
-            document.getElementById('step_type').value = 'manual';
-            document.getElementById('step_description').value = 'Navigate to 203.125.240.11/login and log in to the VPN management portal using admin credentials. Ensure you have the necessary permissions to create new user accounts.';
-            document.getElementById('step_config').value = '{"url": "203.125.240.11/login", "requires_admin": true, "timeout": 300}';
-            break;
-            
-        case 'vpn_create':
-            document.getElementById('step_title').value = 'Create VPN User Account';
-            document.getElementById('step_type').value = 'manual';
-            document.getElementById('step_description').value = 'Create a new VPN user account:\n1. Use {user_email} as the username\n2. Generate a secure 12-character password\n3. Set appropriate access permissions\n4. Save the account credentials securely\n5. Note the account details for the response email';
-            document.getElementById('step_config').value = '{"username_format": "{user_email}", "password_length": 12, "access_level": "standard"}';
-            break;
-            
-        case 'password_reset':
-            document.getElementById('step_title').value = 'Reset User Password';
-            document.getElementById('step_type').value = 'verification';
-            document.getElementById('step_description').value = 'Reset the password for user {username}:\n1. Verify the user\'s identity through security questions or alternate email\n2. Generate a temporary password (8-12 characters)\n3. Set password expiration to 24 hours\n4. Log the password reset action in the audit system';
-            document.getElementById('step_config').value = '{"verification_required": true, "temp_password_length": 10, "expiration_hours": 24}';
-            break;
-    }
-    
-    // Show visual feedback
-    showSuccessPopup('Sample step loaded successfully!');
-}
-
 // Validate JSON on input
 document.getElementById('step_config').addEventListener('input', function() {
     const value = this.value.trim();

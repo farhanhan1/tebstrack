@@ -2262,6 +2262,144 @@ def create_action_step(template_id):
     
     return render_template('admin/create_action_step.html', template=template)
 
+@main.route('/admin/action-steps/<int:step_id>/edit')
+@login_required
+def edit_action_step(step_id):
+    """Edit an action step"""
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('main.home'))
+    
+    step = TemplateActionStep.query.get_or_404(step_id)
+    template = EmailTemplate.query.get_or_404(step.template_id)
+    
+    if request.method == 'POST':
+        try:
+            step.step_title = request.form['step_title']
+            step.step_type = request.form['step_type'] 
+            step.step_description = request.form['step_description']
+            step.is_automated = request.form.get('is_automated') == 'on'
+            step.step_config = request.form.get('step_config', '{}') if request.form.get('step_config') else '{}'
+            
+            db.session.commit()
+            
+            # Add audit log
+            log = TicketLog(
+                user=current_user.username,
+                action='action_step_edit',
+                details=f'Edited action step: {step.step_title} for template: {template.name}'
+            )
+            db.session.add(log)
+            db.session.commit()
+            
+            flash('Action step updated successfully!', 'success')
+            return redirect(url_for('main.manage_template_action_steps', template_id=template.id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating action step: {str(e)}', 'error')
+    
+    return render_template('admin/edit_action_step.html', step=step, template=template)
+
+@main.route('/admin/action-steps/<int:step_id>/move', methods=['POST'])
+@csrf.exempt
+@login_required
+def move_action_step(step_id):
+    """Move an action step up or down in order"""
+    if current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'You do not have permission to perform this action.'}), 403
+    
+    try:
+        data = request.get_json()
+        direction = data.get('direction')
+        
+        step = TemplateActionStep.query.get_or_404(step_id)
+        template = EmailTemplate.query.get_or_404(step.template_id)
+        
+        # Get all steps for this template ordered by step_order
+        all_steps = TemplateActionStep.query.filter_by(template_id=step.template_id).order_by(TemplateActionStep.step_order).all()
+        
+        current_index = None
+        for i, s in enumerate(all_steps):
+            if s.id == step_id:
+                current_index = i
+                break
+        
+        if current_index is None:
+            return jsonify({'success': False, 'message': 'Step not found'}), 404
+        
+        # Determine new position
+        if direction == 'up' and current_index > 0:
+            # Swap with previous step
+            other_step = all_steps[current_index - 1]
+            step.step_order, other_step.step_order = other_step.step_order, step.step_order
+        elif direction == 'down' and current_index < len(all_steps) - 1:
+            # Swap with next step
+            other_step = all_steps[current_index + 1]
+            step.step_order, other_step.step_order = other_step.step_order, step.step_order
+        else:
+            return jsonify({'success': False, 'message': f'Cannot move step {direction}'}), 400
+        
+        db.session.commit()
+        
+        # Add audit log
+        log = TicketLog(
+            user=current_user.username,
+            action='action_step_move',
+            details=f'Moved action step: {step.step_title} {direction} for template: {template.name}'
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': f'Step moved {direction} successfully!'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error moving step: {str(e)}'}), 500
+
+@main.route('/admin/action-steps/<int:step_id>/delete', methods=['DELETE'])
+@csrf.exempt
+@login_required
+def delete_action_step(step_id):
+    """Delete an action step"""
+    if current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'You do not have permission to perform this action.'}), 403
+    
+    try:
+        step = TemplateActionStep.query.get_or_404(step_id)
+        template = EmailTemplate.query.get_or_404(step.template_id)
+        step_title = step.step_title
+        
+        # Get all steps with higher order numbers to reorder them
+        higher_steps = TemplateActionStep.query.filter(
+            TemplateActionStep.template_id == step.template_id,
+            TemplateActionStep.step_order > step.step_order
+        ).all()
+        
+        # Delete the step
+        db.session.delete(step)
+        
+        # Reorder remaining steps
+        for higher_step in higher_steps:
+            higher_step.step_order -= 1
+        
+        db.session.commit()
+        
+        # Add audit log
+        log = TicketLog(
+            user=current_user.username,
+            action='action_step_delete',
+            details=f'Deleted action step: {step_title} from template: {template.name}'
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Action step deleted successfully!'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error deleting step: {str(e)}'}), 500
+
 @main.route('/api/templates/recommend', methods=['POST'])
 @csrf.exempt
 @login_required
