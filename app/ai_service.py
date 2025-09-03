@@ -500,15 +500,23 @@ Be conservative with "Urgent" - reserve for true emergencies.
         Recommend email template based on ticket content
         Returns: {template_name: str, confidence: float, reasoning: str, recommended: bool}
         """
-        # Define available templates and their use cases
-        templates = {
-            "VPN Account Creation": "Use for VPN access requests, VPN setup issues, remote access needs",
-            "Password Reset": "Use for password reset requests, account lockouts, authentication issues", 
-            "Software Installation": "Use for software requests, application installations, license requests",
-            "Hardware Request": "Use for hardware requests, equipment issues, device replacements",
-            "Server Access": "Use for server access requests, database permissions, system access",
-            "General Response": "Use for general inquiries, acknowledgments, status updates"
-        }
+        # Get available templates from database
+        from .models import EmailTemplate
+        
+        active_templates = EmailTemplate.query.filter_by(is_active=True).all()
+        if not active_templates:
+            return {
+                "template_name": None,
+                "confidence": 0.0,
+                "reasoning": "No active email templates available in the database",
+                "recommended": False
+            }
+        
+        # Build templates dictionary with their use cases
+        templates = {}
+        for template in active_templates:
+            use_case = template.use_case_description if template.use_case_description else f"Email template for general use"
+            templates[template.name] = use_case
         
         prompt = f"""
 Analyze this support ticket and recommend the most appropriate email template:
@@ -522,16 +530,16 @@ AVAILABLE TEMPLATES:
 {json.dumps(templates, indent=2)}
 
 TEMPLATE SELECTION GUIDELINES:
-- Match the ticket content to template purpose
-- Consider the specific request type
+- Match the ticket content to template purpose and use case
+- Consider the specific request type and category
 - Look for keywords that indicate template relevance
-- If no specific template fits well, recommend "General Response"
+- If no specific template fits well, set template_name to null and explain why
 
 Respond with JSON:
 {{
-    "template_name": "exact template name",
+    "template_name": "exact template name or null",
     "confidence": 0.85,
-    "reasoning": "why this template fits",
+    "reasoning": "why this template fits or why no template is suitable",
     "recommended": true
 }}
 """
@@ -551,12 +559,31 @@ Respond with JSON:
             
         except Exception as e:
             logging.error(f"Template recommendation failed: {e}")
-            return {
-                "template_name": "General Response",
-                "confidence": 0.0,
-                "reasoning": "AI recommendation failed, using general template",
-                "recommended": False
-            }
+            # Try to find a general purpose template from database
+            from .models import EmailTemplate
+            
+            general_template = EmailTemplate.query.filter_by(is_active=True).filter(
+                db.or_(
+                    EmailTemplate.name.ilike('%general%'),
+                    EmailTemplate.name.ilike('%response%'),
+                    EmailTemplate.use_case_description.ilike('%general%')
+                )
+            ).first()
+            
+            if general_template:
+                return {
+                    "template_name": general_template.name,
+                    "confidence": 0.0,
+                    "reasoning": "AI recommendation failed, using available general template",
+                    "recommended": False
+                }
+            else:
+                return {
+                    "template_name": None,
+                    "confidence": 0.0,
+                    "reasoning": "AI recommendation failed and no general template available",
+                    "recommended": False
+                }
 
     def chatbot_response(self, user_message: str, ticket_context: Optional[Dict] = None, user_context: Optional[Dict] = None) -> str:
         """
@@ -955,27 +982,33 @@ Respond with JSON:
 
     def _get_template_selection_guide(self) -> str:
         """Get the template selection guide from system settings"""
-        from .models import SystemSettings
+        from .models import SystemSettings, EmailTemplate
         
         guide = SystemSettings.get_setting('email_template_guide', '')
         if not guide:
-            # Default guide if none configured
-            guide = """
-TEMPLATE SELECTION GUIDELINES:
-
-1. VPN Account Creation: Use for VPN access requests, remote access setup, network connectivity issues
-2. Password Reset: Use for password reset requests, account lockouts, authentication problems
-3. Software Installation: Use for software requests, application installations, license requests
-4. Hardware Request: Use for hardware requests, equipment issues, device replacements, repairs
-5. Server Access: Use for server access requests, database permissions, system access rights
-6. General Response: Use for general inquiries, acknowledgments, status updates, miscellaneous requests
-
+            # Generate dynamic guide based on available templates
+            active_templates = EmailTemplate.query.filter_by(is_active=True).all()
+            
+            if active_templates:
+                guide = "TEMPLATE SELECTION GUIDELINES:\n\n"
+                
+                for i, template in enumerate(active_templates, 1):
+                    use_case = template.use_case_description if template.use_case_description else f"Email template for general use"
+                    guide += f"{i}. {template.name}: {use_case}\n"
+                
+                guide += """
 SELECTION CRITERIA:
 - Match specific keywords in the request to template purpose
 - Consider the technical complexity of the request
 - Evaluate if the template provides appropriate information for the user's needs
 - If multiple templates could work, choose the most specific one
 - Only recommend a template if there's a clear match (confidence > 0.7)
+"""
+            else:
+                guide = """
+TEMPLATE SELECTION GUIDELINES:
+No email templates are currently configured in the system.
+Please contact the administrator to set up email templates.
 """
         
         return guide

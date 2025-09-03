@@ -1340,6 +1340,58 @@ def ai_recommend_template():
         return jsonify({'error': f'Template recommendation failed: {str(e)}'}), 500
 
 
+@main.route('/api/templates/list', methods=['GET'])
+@login_required
+def get_all_templates():
+    """API endpoint to get all email templates for dropdown selection."""
+    try:
+        templates = EmailTemplate.query.all()
+        template_list = []
+        
+        for template in templates:
+            template_list.append({
+                'id': template.id,
+                'name': template.name,
+                'subject': template.subject,
+                'use_case_description': template.use_case_description
+            })
+        
+        return jsonify({
+            'success': True,
+            'templates': template_list
+        })
+        
+    except Exception as e:
+        logging.error(f"Error fetching templates: {e}")
+        return jsonify({'error': f'Failed to fetch templates: {str(e)}'}), 500
+
+
+@main.route('/api/templates/get/<template_name>', methods=['GET'])
+@login_required
+def get_template_by_name(template_name):
+    """API endpoint to get a specific template by name."""
+    try:
+        template = EmailTemplate.query.filter_by(name=template_name).first()
+        
+        if not template:
+            return jsonify({'error': 'Template not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'template': {
+                'id': template.id,
+                'name': template.name,
+                'subject': template.subject,
+                'body': template.body,
+                'use_case_description': template.use_case_description
+            }
+        })
+        
+    except Exception as e:
+        logging.error(f"Error fetching template: {e}")
+        return jsonify({'error': f'Failed to fetch template: {str(e)}'}), 500
+
+
 @main.route('/api/ai/knowledge-status')
 @login_required
 def knowledge_base_status():

@@ -33,12 +33,6 @@
     <h4 style="margin: 0 0 0.5rem 0; color: #374151; font-size: 1rem;">Select Email Template</h4>
     <select id="template-selector" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 0.5rem;">
       <option value="">Choose a template...</option>
-      <option value="VPN Account Creation">VPN Account Creation</option>
-      <option value="Password Reset">Password Reset</option>
-      <option value="Software Installation">Software Installation</option>
-      <option value="Hardware Request">Hardware Request</option>
-      <option value="Server Access">Server Access</option>
-      <option value="General Response">General Response</option>
     </select>
     <button onclick="useSelectedTemplate()" style="background: #ca8a04; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
       Use Selected Template
@@ -127,49 +121,112 @@ function getTemplateRecommendation() {
   })
   .then(response => response.json())
   .then(data => {
-    if (data.success) {
-      const templates = data.templates;
-      let html = '<div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin-top: 1rem;">';
+    if (data.success && data.templates) {
+      const result = data.templates;
+      let html = '';
       
-      // Acknowledgment template
-      if (templates.acknowledgment) {
-        html += `
-          <div style="margin-bottom: 1rem; padding: 0.8rem; background: white; border-radius: 6px; border-left: 3px solid #059669;">
-            <h5 style="margin: 0 0 0.5rem 0; color: #059669;">Acknowledgment Template</h5>
-            <div style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Subject:</strong> ${templates.acknowledgment.subject}</div>
-            <div style="font-size: 0.9rem; white-space: pre-wrap; background: #f9fafb; padding: 0.5rem; border-radius: 4px;">${templates.acknowledgment.body}</div>
-            <button onclick="copyTemplate('${escapeJs(templates.acknowledgment.subject)}', '${escapeJs(templates.acknowledgment.body)}')" 
-                    style="background: #059669; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-top: 0.5rem;">
-              Copy Template
+      if (result.recommended_template) {
+        const confidence = Math.round((result.confidence || result.template_match_score || 0) * 100);
+        
+        html = `
+          <div style="background: #f0fdf4; padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #059669;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <h5 style="margin: 0; color: #059669; font-size: 1.1rem;">
+                <i class="fas fa-robot" style="margin-right: 0.5rem;"></i>AI Recommendation
+              </h5>
+              <span style="background: #059669; color: white; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
+                ${confidence}% Confidence
+              </span>
+            </div>
+            
+            <div style="background: white; padding: 0.8rem; border-radius: 6px; margin-bottom: 0.75rem;">
+              <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                Recommended Template: <span style="color: #059669;">${result.recommended_template}</span>
+              </div>
+              <div style="color: #6b7280; font-size: 0.9rem; line-height: 1.4;">
+                ${result.reasoning}
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button onclick="useRecommendedTemplate('${escapeJs(result.recommended_template)}')" 
+                      style="background: #059669; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+                <i class="fas fa-check" style="margin-right: 0.3rem;"></i>Use This Template
+              </button>
+              <button onclick="showTemplateSelection()" 
+                      style="background: #6b7280; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+                <i class="fas fa-list" style="margin-right: 0.3rem;"></i>Choose Different
+              </button>
+              <button onclick="getTemplateRecommendation()" 
+                      style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+                <i class="fas fa-refresh" style="margin-right: 0.3rem;"></i>Re-analyze
+              </button>
+            </div>
+        `;
+        
+        // Show alternative templates if available
+        if (result.alternative_templates && result.alternative_templates.length > 0) {
+          html += `
+            <div style="margin-top: 0.75rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px;">
+              <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 0.5rem;">
+                <strong>Other Options:</strong>
+              </div>
+              <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+          `;
+          
+          result.alternative_templates.forEach(template => {
+            html += `
+              <button onclick="useRecommendedTemplate('${escapeJs(template)}')" 
+                      style="background: #e5e7eb; color: #374151; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: background 0.2s;">
+                ${template}
+              </button>
+            `;
+          });
+          
+          html += `
+              </div>
+            </div>
+          `;
+        }
+        
+        html += '</div>';
+      } else {
+        // No recommendation found
+        html = `
+          <div style="background: #fef3c7; padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #f59e0b;">
+            <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+              <i class="fas fa-exclamation-triangle" style="color: #f59e0b; margin-right: 0.5rem;"></i>
+              <h5 style="margin: 0; color: #92400e;">No Specific Template Recommended</h5>
+            </div>
+            <div style="color: #6b7280; font-size: 0.9rem; margin-bottom: 0.75rem;">
+              ${result.reasoning || 'The AI could not find a specific template that matches this ticket well.'}
+            </div>
+            <button onclick="showTemplateSelection()" 
+                    style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+              <i class="fas fa-list" style="margin-right: 0.3rem;"></i>Browse All Templates
             </button>
           </div>
         `;
       }
       
-      // Resolution template
-      if (templates.resolution) {
-        html += `
-          <div style="margin-bottom: 1rem; padding: 0.8rem; background: white; border-radius: 6px; border-left: 3px solid #2563eb;">
-            <h5 style="margin: 0 0 0.5rem 0; color: #2563eb;">Resolution Template</h5>
-            <div style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Subject:</strong> ${templates.resolution.subject}</div>
-            <div style="font-size: 0.9rem; white-space: pre-wrap; background: #f9fafb; padding: 0.5rem; border-radius: 4px;">${templates.resolution.body}</div>
-            <button onclick="copyTemplate('${escapeJs(templates.resolution.subject)}', '${escapeJs(templates.resolution.body)}')" 
-                    style="background: #2563eb; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-top: 0.5rem;">
-              Copy Template
-            </button>
-          </div>
-        `;
-      }
-      
-      html += '</div>';
       contentDiv.innerHTML = html;
     } else {
-      contentDiv.innerHTML = '<div style="color: #dc2626;">Error: ' + (data.error || 'Template generation failed') + '</div>';
+      contentDiv.innerHTML = `
+        <div style="color: #dc2626; background: #fee2e2; padding: 0.75rem; border-radius: 6px; border-left: 4px solid #dc2626;">
+          <i class="fas fa-exclamation-circle" style="margin-right: 0.5rem;"></i>
+          Error: ${data.error || 'Template recommendation failed'}
+        </div>
+      `;
     }
   })
   .catch(error => {
     console.error('Template recommendation error:', error);
-    contentDiv.innerHTML = '<div style="color: #dc2626;">Error connecting to AI service.</div>';
+    contentDiv.innerHTML = `
+      <div style="color: #dc2626; background: #fee2e2; padding: 0.75rem; border-radius: 6px; border-left: 4px solid #dc2626;">
+        <i class="fas fa-exclamation-circle" style="margin-right: 0.5rem;"></i>
+        Error connecting to AI service. Please check your internet connection and try again.
+      </div>
+    `;
   });
 }
 
@@ -224,7 +281,47 @@ function applyCategorization(category, urgency) {
 }
 
 function showTemplateSelection() {
-  document.getElementById('template-selection').style.display = 'block';
+  const selectionDiv = document.getElementById('template-selection');
+  const selector = document.getElementById('template-selector');
+  
+  // Show the selection div
+  selectionDiv.style.display = 'block';
+  
+  // Clear current options except the first one
+  selector.innerHTML = '<option value="">Choose a template...</option>';
+  
+  // Fetch templates from database
+  fetch('/api/templates/list')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.templates) {
+        // Populate dropdown with database templates
+        data.templates.forEach(template => {
+          const option = document.createElement('option');
+          option.value = template.name;
+          option.textContent = template.name;
+          option.setAttribute('data-use-case', template.use_case_description || '');
+          selector.appendChild(option);
+        });
+      } else {
+        console.error('Failed to load templates:', data.error);
+        // Show error message instead of fallback options
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'Error loading templates - please contact administrator';
+        option.disabled = true;
+        selector.appendChild(option);
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching templates:', error);
+      // Show error message instead of fallback options
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Connection error - please refresh and try again';
+      option.disabled = true;
+      selector.appendChild(option);
+    });
 }
 
 function copyTemplate(subject, body) {
@@ -261,8 +358,31 @@ function useTemplate(templateName) {
 function useSelectedTemplate() {
   const templateName = document.getElementById('template-selector').value;
   if (templateName) {
-    useTemplate(templateName);
+    // Use the same function as the AI recommendation
+    useRecommendedTemplate(templateName);
+    
+    // Hide the template selection after use
+    document.getElementById('template-selection').style.display = 'none';
+  } else {
+    alert('Please select a template first.');
   }
+}
+
+function useRecommendedTemplate(templateName) {
+  // Find the template and copy its content
+  fetch('/api/templates/get/' + encodeURIComponent(templateName))
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.template) {
+        copyTemplate(data.template.subject, data.template.body);
+      } else {
+        alert('Error loading template: ' + (data.error || 'Template not found'));
+      }
+    })
+    .catch(error => {
+      console.error('Error loading template:', error);
+      alert('Error loading template');
+    });
 }
 
 function escapeJs(str) {
