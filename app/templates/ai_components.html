@@ -369,7 +369,13 @@ function useSelectedTemplate() {
 }
 
 function useRecommendedTemplate(templateName) {
-  // Find the template and copy its content
+  // Check if this is VPN Account Creation template
+  if (templateName === 'VPN Account Creation') {
+    executeVPNAutomation();
+    return;
+  }
+  
+  // For other templates, use the original copy-to-clipboard functionality
   fetch('/api/templates/get/' + encodeURIComponent(templateName))
     .then(response => response.json())
     .then(data => {
@@ -387,5 +393,285 @@ function useRecommendedTemplate(templateName) {
 
 function escapeJs(str) {
   return str.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
+}
+
+// VPN Automation Functions
+function executeVPNAutomation() {
+  const senderEmail = "{{ ticket.sender|e }}";
+  
+  if (!senderEmail) {
+    alert('Error: Cannot determine sender email from ticket');
+    return;
+  }
+  
+  // Show VPN credentials popup
+  showVPNCredentialsPopup(senderEmail);
+}
+
+function showVPNCredentialsPopup(senderEmail) {
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'vpn-credentials-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+  
+  // Create popup
+  const popup = document.createElement('div');
+  popup.style.cssText = `
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+  `;
+  
+  popup.innerHTML = `
+    <h3 style="margin: 0 0 1rem 0; color: #1f2937; font-size: 1.3rem;">
+      <i class="fas fa-shield-alt" style="color: #059669; margin-right: 0.5rem;"></i>
+      VPN Account Creation
+    </h3>
+    
+    <div style="margin-bottom: 1rem; padding: 1rem; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #059669;">
+      <p style="margin: 0; color: #374151; font-size: 0.9rem;">
+        <strong>Sender:</strong> ${senderEmail}<br>
+        Please review and confirm the VPN credentials below:
+      </p>
+    </div>
+    
+    <div style="margin-bottom: 1rem;">
+      <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+        VPN Username:
+      </label>
+      <input type="text" id="vpn-username-input" style="width: 100%; padding: 0.75rem; border: 2px solid #d1d5db; border-radius: 6px; font-size: 1rem;" placeholder="Loading...">
+    </div>
+    
+    <div style="margin-bottom: 1.5rem;">
+      <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+        VPN Password:
+      </label>
+      <div style="position: relative;">
+        <input type="password" id="vpn-password-input" style="width: 100%; padding: 0.75rem; border: 2px solid #d1d5db; border-radius: 6px; font-size: 1rem; padding-right: 3rem;" placeholder="Loading...">
+        <button type="button" onclick="togglePasswordVisibility()" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: #6b7280; cursor: pointer; font-size: 1.1rem;">
+          <i class="fas fa-eye" id="password-toggle-icon"></i>
+        </button>
+      </div>
+    </div>
+    
+    <div id="vpn-status-message" style="margin-bottom: 1rem; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; display: none;">
+      <div style="color: #6b7280; font-size: 0.9rem;">Getting suggested credentials...</div>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+      <button onclick="closeVPNPopup()" style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+        Cancel
+      </button>
+      <button onclick="confirmVPNCredentials()" id="vpn-confirm-btn" style="padding: 0.75rem 1.5rem; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;" disabled>
+        <i class="fas fa-check" style="margin-right: 0.5rem;"></i>Confirm & Execute
+      </button>
+    </div>
+  `;
+  
+  overlay.appendChild(popup);
+  document.body.appendChild(overlay);
+  
+  // Load suggested credentials
+  loadSuggestedCredentials(senderEmail);
+}
+
+function loadSuggestedCredentials(senderEmail) {
+  const statusDiv = document.getElementById('vpn-status-message');
+  statusDiv.style.display = 'block';
+  
+  fetch('/api/automation/vpn-creation/credentials', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender_email: senderEmail
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById('vpn-username-input').value = data.suggested_username;
+      document.getElementById('vpn-password-input').value = data.generated_password;
+      document.getElementById('vpn-confirm-btn').disabled = false;
+      statusDiv.style.display = 'none';
+    } else {
+      statusDiv.innerHTML = '<div style="color: #dc2626;">Error loading credentials: ' + data.error + '</div>';
+    }
+  })
+  .catch(error => {
+    console.error('Error loading credentials:', error);
+    statusDiv.innerHTML = '<div style="color: #dc2626;">Error loading credentials. Please try again.</div>';
+  });
+}
+
+function togglePasswordVisibility() {
+  const passwordInput = document.getElementById('vpn-password-input');
+  const toggleIcon = document.getElementById('password-toggle-icon');
+  
+  if (passwordInput.type === 'password') {
+    passwordInput.type = 'text';
+    toggleIcon.className = 'fas fa-eye-slash';
+  } else {
+    passwordInput.type = 'password';
+    toggleIcon.className = 'fas fa-eye';
+  }
+}
+
+function confirmVPNCredentials() {
+  const vpnUsername = document.getElementById('vpn-username-input').value.trim();
+  const vpnPassword = document.getElementById('vpn-password-input').value.trim();
+  const senderEmail = "{{ ticket.sender|e }}";
+  
+  if (!vpnUsername || !vpnPassword) {
+    alert('Please fill in both username and password');
+    return;
+  }
+  
+  // Show confirmation
+  if (!confirm(`Confirm VPN Account Creation:\\n\\nUsername: ${vpnUsername}\\nPassword: ${vpnPassword}\\n\\nThis will start the automated VPN creation process. Continue?`)) {
+    return;
+  }
+  
+  // Close popup and show automation progress
+  closeVPNPopup();
+  showAutomationProgress(senderEmail, vpnUsername, vpnPassword);
+}
+
+function closeVPNPopup() {
+  const overlay = document.getElementById('vpn-credentials-overlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+function showAutomationProgress(senderEmail, vpnUsername, vpnPassword) {
+  // Update the template content area to show progress
+  const contentDiv = document.getElementById('template-content');
+  
+  contentDiv.innerHTML = `
+    <div style="background: #f0fdf4; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #059669;">
+      <h4 style="margin: 0 0 1rem 0; color: #059669; font-size: 1.1rem;">
+        <i class="fas fa-cog fa-spin" style="margin-right: 0.5rem;"></i>
+        VPN Account Creation in Progress
+      </h4>
+      
+      <div style="margin-bottom: 1rem; font-size: 0.9rem; color: #374151;">
+        <strong>Username:</strong> ${vpnUsername}<br>
+        <strong>Target User:</strong> ${senderEmail}
+      </div>
+      
+      <div id="automation-progress" style="margin-bottom: 1rem;">
+        <div style="background: #e5e7eb; border-radius: 6px; overflow: hidden;">
+          <div id="progress-bar" style="background: #059669; height: 8px; width: 0%; transition: width 0.3s ease;"></div>
+        </div>
+        <div id="progress-text" style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
+          Initializing automation...
+        </div>
+      </div>
+      
+      <div id="automation-status" style="font-size: 0.9rem; color: #6b7280;">
+        Starting VPN account creation process...
+      </div>
+    </div>
+  `;
+  
+  // Execute the automation
+  executeVPNCreationAutomation(senderEmail, vpnUsername, vpnPassword);
+}
+
+function executeVPNCreationAutomation(senderEmail, vpnUsername, vpnPassword) {
+  fetch('/api/automation/vpn-creation/execute', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender_email: senderEmail,
+      vpn_username: vpnUsername,
+      vpn_password: vpnPassword
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    updateAutomationProgress(data);
+  })
+  .catch(error => {
+    console.error('Automation error:', error);
+    showAutomationError('Network error occurred during automation');
+  });
+}
+
+function updateAutomationProgress(data) {
+  const progressBar = document.getElementById('progress-bar');
+  const progressText = document.getElementById('progress-text');
+  const statusDiv = document.getElementById('automation-status');
+  
+  if (data.success) {
+    // Success
+    progressBar.style.width = '100%';
+    progressText.textContent = 'Automation completed successfully!';
+    statusDiv.innerHTML = `
+      <div style="color: #059669; font-weight: 600;">
+        <i class="fas fa-check-circle" style="margin-right: 0.5rem;"></i>
+        VPN Account Creation Complete
+      </div>
+      <div style="margin-top: 0.5rem; color: #374151;">
+        Outlook has been opened with the credentials email drafted.
+        Please review and send the email to complete the process.
+      </div>
+    `;
+  } else {
+    // Error
+    const progressPercentage = (data.steps_completed / data.total_steps) * 100;
+    progressBar.style.width = progressPercentage + '%';
+    progressText.textContent = `Failed at step ${data.steps_completed}/${data.total_steps}`;
+    statusDiv.innerHTML = `
+      <div style="color: #dc2626; font-weight: 600;">
+        <i class="fas fa-exclamation-circle" style="margin-right: 0.5rem;"></i>
+        Automation Failed
+      </div>
+      <div style="margin-top: 0.5rem; color: #374151;">
+        ${data.error_message || 'Unknown error occurred'}
+      </div>
+      <button onclick="retryAutomation()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Retry Automation
+      </button>
+    `;
+  }
+}
+
+function showAutomationError(errorMessage) {
+  const statusDiv = document.getElementById('automation-status');
+  statusDiv.innerHTML = `
+    <div style="color: #dc2626; font-weight: 600;">
+      <i class="fas fa-exclamation-circle" style="margin-right: 0.5rem;"></i>
+      Error
+    </div>
+    <div style="margin-top: 0.5rem; color: #374151;">
+      ${errorMessage}
+    </div>
+  `;
+}
+
+function retryAutomation() {
+  // Could implement retry logic here
+  location.reload();
 }
 </script>

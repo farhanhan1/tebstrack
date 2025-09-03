@@ -1392,6 +1392,77 @@ def get_template_by_name(template_name):
         return jsonify({'error': f'Failed to fetch template: {str(e)}'}), 500
 
 
+@main.route('/api/automation/vpn-creation/credentials', methods=['POST'])
+@login_required
+@csrf.exempt
+def get_vpn_credentials():
+    """Get VPN credentials with user confirmation popup"""
+    try:
+        data = request.get_json()
+        sender_email = data.get('sender_email', '')
+        
+        if not sender_email:
+            return jsonify({'error': 'Sender email is required'}), 400
+        
+        # Extract username from email
+        from .automation_service import get_automation_service
+        automation_service = get_automation_service()
+        
+        suggested_username = automation_service.extract_username_from_email(sender_email)
+        generated_password = automation_service.generate_vpn_password()
+        
+        return jsonify({
+            'success': True,
+            'suggested_username': suggested_username,
+            'generated_password': generated_password
+        })
+        
+    except Exception as e:
+        logging.error(f"Error generating VPN credentials: {e}")
+        return jsonify({'error': f'Failed to generate credentials: {str(e)}'}), 500
+
+
+@main.route('/api/automation/vpn-creation/execute', methods=['POST'])
+@login_required
+@csrf.exempt
+def execute_vpn_creation():
+    """Execute VPN account creation automation"""
+    try:
+        data = request.get_json()
+        sender_email = data.get('sender_email', '')
+        vpn_username = data.get('vpn_username', '')
+        vpn_password = data.get('vpn_password', '')
+        
+        if not all([sender_email, vpn_username, vpn_password]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        # Execute automation
+        from .automation_service import get_automation_service
+        automation_service = get_automation_service()
+        
+        results = automation_service.execute_vpn_creation_automation(
+            sender_email, vpn_username, vpn_password
+        )
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        logging.error(f"Error executing VPN automation: {e}")
+        return jsonify({'error': f'Automation failed: {str(e)}'}), 500
+
+
+@main.route('/api/automation/vpn-creation/status', methods=['GET'])
+@login_required
+def get_automation_status():
+    """Get status of ongoing automation"""
+    # This could be enhanced with real-time status tracking
+    return jsonify({
+        'success': True,
+        'status': 'ready',
+        'message': 'Automation service is ready'
+    })
+
+
 @main.route('/api/ai/knowledge-status')
 @login_required
 def knowledge_base_status():
