@@ -60,11 +60,56 @@ class VPNAutomationService:
             return email.split('@')[0]
         return email
     
+    def safe_click_element(self, element, element_description="element"):
+        """Safely click an element with multiple fallback methods for headless mode"""
+        try:
+            # Method 1: Scroll element into view and try regular click
+            self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
+            time.sleep(0.5)  # Wait for scroll to complete
+            
+            try:
+                element.click()
+                logging.info(f"Successfully clicked {element_description} with regular click")
+                return True
+            except Exception as click_error:
+                logging.warning(f"Regular click failed for {element_description}: {click_error}")
+                
+                # Method 2: Try JavaScript click
+                try:
+                    self.driver.execute_script("arguments[0].click();", element)
+                    logging.info(f"Successfully clicked {element_description} with JavaScript click")
+                    return True
+                except Exception as js_error:
+                    logging.warning(f"JavaScript click failed for {element_description}: {js_error}")
+                    
+                    # Method 3: Try to remove any overlapping elements and click
+                    try:
+                        # Remove any potentially overlapping footers or modals
+                        self.driver.execute_script("""
+                            var overlays = document.querySelectorAll('.footer, .modal, .overlay');
+                            overlays.forEach(function(overlay) {
+                                if (overlay.style) overlay.style.display = 'none';
+                            });
+                        """)
+                        time.sleep(0.2)
+                        element.click()
+                        logging.info(f"Successfully clicked {element_description} after removing overlays")
+                        return True
+                    except Exception as final_error:
+                        logging.error(f"All click methods failed for {element_description}: {final_error}")
+                        return False
+                        
+        except Exception as e:
+            logging.error(f"Failed to handle clicking {element_description}: {e}")
+            return False
+    
     def setup_browser(self) -> bool:
         """Setup Chrome browser with appropriate options"""
         try:
             chrome_options = Options()
-            chrome_options.add_argument("--start-maximized")
+            chrome_options.add_argument("--headless")
+            # Set a specific window size for headless mode to ensure consistent layout
+            chrome_options.add_argument("--window-size=1920,1080")
             chrome_options.add_argument("--disable-blink-features=AutomationControlled")
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
@@ -231,10 +276,14 @@ class VPNAutomationService:
                 By.CSS_SELECTOR, 
                 "#ng-base > form > div.footer.ng-scope > dialog-footer > button.primary"
             )))
-            primary_button.click()
-            logging.info("Started user creation wizard")
             
-            return True
+            # Use safe click method for headless mode compatibility
+            if self.safe_click_element(primary_button, "wizard start button"):
+                logging.info("Started user creation wizard")
+                return True
+            else:
+                logging.error("Failed to click wizard start button")
+                return False
         except Exception as e:
             logging.error(f"Failed to start wizard: {e}")
             return False
@@ -275,9 +324,14 @@ class VPNAutomationService:
                 By.CSS_SELECTOR,
                 "#ng-base > form > div.footer.ng-scope > dialog-footer > button.primary"
             )))
-            primary_button.click()
-            logging.info("Continued to next wizard step")
-            return True
+            
+            # Use safe click method for headless mode compatibility
+            if self.safe_click_element(primary_button, "wizard continue button"):
+                logging.info("Continued to next wizard step")
+                return True
+            else:
+                logging.error("Failed to click wizard continue button")
+                return False
         except Exception as e:
             logging.error(f"Failed to continue wizard: {e}")
             return False
@@ -367,10 +421,14 @@ class VPNAutomationService:
                 By.CSS_SELECTOR,
                 "#ng-base > form > div.footer.ng-scope > dialog-footer > button.primary"
             )))
-            primary_button.click()
             
-            logging.info("Configured two-factor authentication")
-            return True
+            # Use safe click method for headless mode compatibility
+            if self.safe_click_element(primary_button, "2FA continue button"):
+                logging.info("Configured two-factor authentication")
+                return True
+            else:
+                logging.error("Failed to click 2FA continue button")
+                return False
         except Exception as e:
             logging.error(f"Failed to configure 2FA: {e}")
             return False
@@ -431,8 +489,13 @@ class VPNAutomationService:
                     By.CSS_SELECTOR,
                     "#ng-base > form > div.footer.ng-scope > dialog-footer > button.primary"
                 )))
-                primary_button.click()
-                logging.info("Successfully clicked final continue button")
+                
+                # Use safe click method for headless mode compatibility
+                if self.safe_click_element(primary_button, "final continue button"):
+                    logging.info("Successfully clicked final continue button")
+                else:
+                    logging.error("Failed to click final continue button with all methods")
+                    return False
                 
                 # Wait a moment for the action to complete
                 time.sleep(2)
@@ -450,26 +513,90 @@ class VPNAutomationService:
             print(f"DEBUG: configure_user_groups failed with error: {e}", flush=True)
             return False
     
+    def start_outlook_explicitly(self) -> bool:
+        """Explicitly start Outlook and wait for it to be ready"""
+        try:
+            logging.info("Explicitly starting Outlook application...")
+            print("DEBUG: Explicitly starting Outlook application...", flush=True)
+            
+            # First, try to start Outlook via subprocess
+            try:
+                subprocess.run(['start', 'outlook'], shell=True, check=True)
+                logging.info("Started Outlook via subprocess")
+                print("DEBUG: Started Outlook via subprocess", flush=True)
+            except subprocess.CalledProcessError as e:
+                logging.warning(f"Failed to start Outlook via subprocess: {e}")
+                print(f"DEBUG: Failed to start Outlook via subprocess: {e}", flush=True)
+            
+            # Wait for Outlook to start and become available
+            max_attempts = 15  # 15 seconds max wait
+            for attempt in range(max_attempts):
+                try:
+                    if PYWIN32_AVAILABLE:
+                        import pythoncom
+                        pythoncom.CoInitialize()
+                        try:
+                            # Try to connect to Outlook
+                            outlook = win32com.client.Dispatch("Outlook.Application")
+                            # Test if we can access Outlook's namespace (this confirms it's ready)
+                            namespace = outlook.GetNamespace("MAPI")
+                            logging.info(f"Outlook is ready after {attempt + 1} seconds")
+                            print(f"DEBUG: Outlook is ready after {attempt + 1} seconds", flush=True)
+                            return True
+                        finally:
+                            pythoncom.CoUninitialize()
+                    else:
+                        # If pywin32 not available, just wait a bit
+                        time.sleep(5)
+                        return True
+                        
+                except Exception as e:
+                    if attempt < max_attempts - 1:
+                        logging.info(f"Outlook not ready yet, waiting... (attempt {attempt + 1})")
+                        print(f"DEBUG: Outlook not ready yet, waiting... (attempt {attempt + 1})", flush=True)
+                        time.sleep(1)
+                    else:
+                        logging.error(f"Outlook failed to become ready after {max_attempts} seconds: {e}")
+                        print(f"DEBUG: Outlook failed to become ready after {max_attempts} seconds: {e}", flush=True)
+                        return False
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Failed to start Outlook explicitly: {e}")
+            print(f"DEBUG: Failed to start Outlook explicitly: {e}", flush=True)
+            return False
+
     def open_outlook_and_draft_email(self, vpn_username: str, vpn_password: str) -> bool:
         """Step 17: Open Outlook and draft email automatically"""
         try:
             logging.info("Starting Outlook email creation process...")
             print("DEBUG: Starting Outlook email creation process...", flush=True)
-            time.sleep(1)
+            
+            # Step 1: Explicitly start Outlook first
+            if not self.start_outlook_explicitly():
+                logging.warning("Failed to start Outlook explicitly, trying COM automation anyway...")
+                print("DEBUG: Failed to start Outlook explicitly, trying COM automation anyway...", flush=True)
+            
+            time.sleep(2)  # Additional wait after explicit startup
             
             # Extract actual name from username for personalization
             username_parts = vpn_username.split('.')
             display_name = ' '.join(word.capitalize() for word in username_parts)
             
-            # Create email body
+            # Create email body with attachment references
             email_body = f"""Hi {display_name},
 
-We have created a VPN account for you and attached the setup guide in this email.
+We have created a VPN account for you and attached the setup guides in this email.
 
-Below are your credentials.
+Below are your credentials:
 
 Username: {vpn_username}
 Password: {vpn_password}
+
+Please refer to the attached documents:
+1. TeBS-FortiToken 2FA Guide - For setting up two-factor authentication
+2. TeBS-VPN Client Setup Guide - For configuring your VPN client
 
 Thanks & Regards,
 Farhan
@@ -485,22 +612,100 @@ Infra Intern"""
                 pythoncom.CoInitialize()
                 
                 try:
-                    # Connect to Outlook application
-                    outlook = win32com.client.Dispatch("Outlook.Application")
+                    # Connect to the already-started Outlook application
+                    logging.info("Connecting to Outlook via COM...")
+                    print("DEBUG: Connecting to Outlook via COM...", flush=True)
+                    
+                    # Try to get existing Outlook instance first
+                    try:
+                        outlook = win32com.client.GetActiveObject("Outlook.Application")
+                        logging.info("Connected to existing Outlook instance")
+                        print("DEBUG: Connected to existing Outlook instance", flush=True)
+                    except:
+                        # If no existing instance, create new one
+                        outlook = win32com.client.Dispatch("Outlook.Application")
+                        logging.info("Created new Outlook instance")
+                        print("DEBUG: Created new Outlook instance", flush=True)
+                        time.sleep(3)  # Wait for new instance to initialize
                     
                     # Create a new mail item
+                    logging.info("Creating new email message...")
+                    print("DEBUG: Creating new email message...", flush=True)
                     mail = outlook.CreateItem(0)  # 0 = olMailItem
                     
                     # Set email properties
                     mail.To = f"{vpn_username}@totalebizsolutions.com"
                     mail.Subject = "VPN Account Credentials"
                     mail.Body = email_body
+                    logging.info("Set email basic properties")
+                    print("DEBUG: Set email basic properties", flush=True)
+                    
+                    # Add PDF attachments
+                    try:
+                        logging.info("Adding PDF attachments...")
+                        print("DEBUG: Adding PDF attachments...", flush=True)
+                        # Get the absolute path to the documents folder
+                        script_dir = os.path.dirname(os.path.abspath(__file__))
+                        documents_path = os.path.join(script_dir, 'static', 'documents')
+                        
+                        # Attach FortiToken 2FA Guide
+                        fortitoken_guide = os.path.join(documents_path, "TeBS-FortiToken 2FA Guide.V1.0.pdf")
+                        if os.path.exists(fortitoken_guide):
+                            mail.Attachments.Add(fortitoken_guide)
+                            logging.info("Added FortiToken 2FA Guide attachment")
+                            print("DEBUG: Added FortiToken 2FA Guide attachment", flush=True)
+                        else:
+                            logging.warning(f"FortiToken guide not found at: {fortitoken_guide}")
+                            print(f"DEBUG: FortiToken guide not found at: {fortitoken_guide}", flush=True)
+                        
+                        # Attach VPN Client Setup Guide
+                        vpn_guide = os.path.join(documents_path, "TeBS-VPN Client Setup Guide.V4.0.pdf")
+                        if os.path.exists(vpn_guide):
+                            mail.Attachments.Add(vpn_guide)
+                            logging.info("Added VPN Client Setup Guide attachment")
+                            print("DEBUG: Added VPN Client Setup Guide attachment", flush=True)
+                        else:
+                            logging.warning(f"VPN guide not found at: {vpn_guide}")
+                            print(f"DEBUG: VPN guide not found at: {vpn_guide}", flush=True)
+                            
+                    except Exception as attachment_error:
+                        logging.warning(f"Failed to add attachments: {attachment_error}")
+                        print(f"DEBUG: Failed to add attachments: {attachment_error}", flush=True)
                     
                     # Display the email (this opens it in a window ready to send)
+                    logging.info("Displaying email draft...")
+                    print("DEBUG: Displaying email draft...", flush=True)
+                    
+                    # Try to bring Outlook to foreground
+                    try:
+                        # Get Outlook window and bring it to front
+                        import win32gui
+                        import win32con
+                        
+                        def enum_windows_callback(hwnd, windows):
+                            if win32gui.IsWindowVisible(hwnd):
+                                window_text = win32gui.GetWindowText(hwnd)
+                                if "outlook" in window_text.lower():
+                                    windows.append(hwnd)
+                        
+                        windows = []
+                        win32gui.EnumWindows(enum_windows_callback, windows)
+                        
+                        if windows:
+                            # Bring Outlook window to foreground
+                            win32gui.SetForegroundWindow(windows[0])
+                            win32gui.ShowWindow(windows[0], win32con.SW_RESTORE)
+                            logging.info("Brought Outlook window to foreground")
+                            print("DEBUG: Brought Outlook window to foreground", flush=True)
+                    except Exception as window_error:
+                        logging.warning(f"Could not bring Outlook to foreground: {window_error}")
+                        print(f"DEBUG: Could not bring Outlook to foreground: {window_error}", flush=True)
+                    
                     mail.Display(True)  # True = modal dialog
                     
                     logging.info(f"Created draft email in Outlook for {vpn_username}")
                     logging.info("Email is ready - user just needs to click Send")
+                    print("DEBUG: Email draft created successfully!", flush=True)
                     return True
                     
                 finally:
@@ -514,11 +719,20 @@ Infra Intern"""
                     subprocess.run(['start', 'outlook'], shell=True, check=True)
                     logging.info(f"Opened Outlook Classic for {vpn_username}")
                     
+                    # Get attachment paths for manual reference
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    documents_path = os.path.join(script_dir, 'static', 'documents')
+                    fortitoken_guide = os.path.join(documents_path, "TeBS-FortiToken 2FA Guide.V1.0.pdf")
+                    vpn_guide = os.path.join(documents_path, "TeBS-VPN Client Setup Guide.V4.0.pdf")
+                    
                     # Provide email details for manual creation
                     logging.info(f"Please create email manually with these details:")
                     logging.info(f"To: {vpn_username}@totalebizsolutions.com")
                     logging.info(f"Subject: VPN Account Credentials")
                     logging.info(f"Body: {email_body}")
+                    logging.info(f"Attachments to add:")
+                    logging.info(f"1. {fortitoken_guide}")
+                    logging.info(f"2. {vpn_guide}")
                     
                 except subprocess.CalledProcessError as e:
                     logging.warning(f"Could not open Outlook: {e}")
@@ -526,14 +740,25 @@ Infra Intern"""
                 
             except Exception as com_error:
                 logging.error(f"Failed to create email via COM: {com_error}")
+                print(f"DEBUG: Failed to create email via COM: {com_error}", flush=True)
                 # Fallback to manual method
                 try:
                     subprocess.run(['start', 'outlook'], shell=True, check=True)
                     logging.info("Opened Outlook manually due to COM error")
+                    
+                    # Get attachment paths for manual reference
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    documents_path = os.path.join(script_dir, 'static', 'documents')
+                    fortitoken_guide = os.path.join(documents_path, "TeBS-FortiToken 2FA Guide.V1.0.pdf")
+                    vpn_guide = os.path.join(documents_path, "TeBS-VPN Client Setup Guide.V4.0.pdf")
+                    
                     logging.info(f"Please create email manually:")
                     logging.info(f"To: {vpn_username}@totalebizsolutions.com")
                     logging.info(f"Subject: VPN Account Credentials") 
                     logging.info(f"Body: {email_body}")
+                    logging.info(f"Attachments to add:")
+                    logging.info(f"1. {fortitoken_guide}")
+                    logging.info(f"2. {vpn_guide}")
                 except subprocess.CalledProcessError:
                     logging.error("Could not open Outlook at all")
                     return False
@@ -622,16 +847,12 @@ Infra Intern"""
             
             results['success'] = True
             results['steps_completed'] = 18
-            print("DEBUG: All automation steps completed successfully!", flush=True)
-            logging.info("All automation steps completed successfully!")
             
         except Exception as e:
             results['error_message'] = f"Automation failed: {str(e)}"
-            print(f"DEBUG: Automation failed with exception: {e}", flush=True)
             logging.error(f"VPN automation error: {e}")
         finally:
             self.cleanup()
-            print("DEBUG: Automation cleanup completed", flush=True)
         
         return results
 
