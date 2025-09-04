@@ -584,20 +584,64 @@ function showAutomationProgress(senderEmail, vpnUsername, vpnPassword) {
         <div id="progress-text" style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
           Initializing automation...
         </div>
+        <div id="step-counter" style="margin-top: 0.25rem; font-size: 0.8rem; color: #9ca3af;">
+          Step 0 of 18
+        </div>
       </div>
       
       <div id="automation-status" style="font-size: 0.9rem; color: #6b7280;">
         Starting VPN account creation process...
       </div>
+      
+      <div id="automation-logs" style="margin-top: 1rem; max-height: 200px; overflow-y: auto; background: #f9fafb; padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 0.8rem; display: none;">
+        <div style="color: #6b7280; margin-bottom: 0.5rem;">Automation Logs:</div>
+      </div>
+      
+      <button id="show-logs-btn" onclick="toggleAutomationLogs()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+        Show Logs
+      </button>
     </div>
   `;
   
-  // Execute the automation
-  executeVPNCreationAutomation(senderEmail, vpnUsername, vpnPassword);
+  // Execute the automation with real-time progress
+  executeVPNCreationAutomationRealTime(senderEmail, vpnUsername, vpnPassword);
 }
 
-function executeVPNCreationAutomation(senderEmail, vpnUsername, vpnPassword) {
-  fetch('/api/automation/vpn-creation/execute', {
+function toggleAutomationLogs() {
+  const logsDiv = document.getElementById('automation-logs');
+  const toggleBtn = document.getElementById('show-logs-btn');
+  
+  if (logsDiv.style.display === 'none') {
+    logsDiv.style.display = 'block';
+    toggleBtn.textContent = 'Hide Logs';
+  } else {
+    logsDiv.style.display = 'none';
+    toggleBtn.textContent = 'Show Logs';
+  }
+}
+
+function addLogEntry(message, type = 'info') {
+  const logsDiv = document.getElementById('automation-logs');
+  const timestamp = new Date().toLocaleTimeString();
+  const colors = {
+    'info': '#6b7280',
+    'success': '#059669',
+    'error': '#dc2626',
+    'warning': '#d97706'
+  };
+  
+  const logEntry = document.createElement('div');
+  logEntry.style.color = colors[type] || colors['info'];
+  logEntry.style.marginBottom = '0.25rem';
+  logEntry.innerHTML = `[${timestamp}] ${message}`;
+  
+  logsDiv.appendChild(logEntry);
+  logsDiv.scrollTop = logsDiv.scrollHeight;
+}
+
+function executeVPNCreationAutomationRealTime(senderEmail, vpnUsername, vpnPassword) {
+  // Start the background automation
+  fetch('/api/automation/vpn-creation/execute-background', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -610,64 +654,157 @@ function executeVPNCreationAutomation(senderEmail, vpnUsername, vpnPassword) {
   })
   .then(response => response.json())
   .then(data => {
-    updateAutomationProgress(data);
+    if (data.success) {
+      addLogEntry(`Automation job started with ID: ${data.job_id}`, 'success');
+      // Start polling for progress updates
+      pollAutomationProgress(data.job_id);
+    } else {
+      updateAutomationStatus('Failed to start automation: ' + data.error, true);
+      addLogEntry('Failed to start automation: ' + data.error, 'error');
+    }
   })
   .catch(error => {
-    console.error('Automation error:', error);
-    showAutomationError('Network error occurred during automation');
+    console.error('Error starting automation:', error);
+    updateAutomationStatus('Error starting automation. Please try again.', true);
+    addLogEntry('Error starting automation: ' + error, 'error');
   });
 }
 
-function updateAutomationProgress(data) {
-  const progressBar = document.getElementById('progress-bar');
-  const progressText = document.getElementById('progress-text');
-  const statusDiv = document.getElementById('automation-status');
+function pollAutomationProgress(jobId) {
+  let lastLoggedStep = -1; // Track the last step we logged to avoid duplicates
   
-  if (data.success) {
-    // Success
-    progressBar.style.width = '100%';
-    progressText.textContent = 'Automation completed successfully!';
-    statusDiv.innerHTML = `
-      <div style="color: #059669; font-weight: 600;">
-        <i class="fas fa-check-circle" style="margin-right: 0.5rem;"></i>
-        VPN Account Creation Complete
-      </div>
-      <div style="margin-top: 0.5rem; color: #374151;">
-        Outlook has been opened with the credentials email drafted.
-        Please review and send the email to complete the process.
-      </div>
-    `;
-  } else {
-    // Error
-    const progressPercentage = (data.steps_completed / data.total_steps) * 100;
-    progressBar.style.width = progressPercentage + '%';
-    progressText.textContent = `Failed at step ${data.steps_completed}/${data.total_steps}`;
-    statusDiv.innerHTML = `
-      <div style="color: #dc2626; font-weight: 600;">
-        <i class="fas fa-exclamation-circle" style="margin-right: 0.5rem;"></i>
-        Automation Failed
-      </div>
-      <div style="margin-top: 0.5rem; color: #374151;">
-        ${data.error_message || 'Unknown error occurred'}
-      </div>
-      <button onclick="retryAutomation()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
-        Retry Automation
-      </button>
-    `;
+  const pollInterval = setInterval(() => {
+    fetch(`/api/automation/vpn-creation/progress/${jobId}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          clearInterval(pollInterval);
+          updateAutomationStatus('Error getting progress: ' + data.error, true);
+          addLogEntry('Error getting progress: ' + data.error, 'error');
+          return;
+        }
+        
+        // Update progress bar
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const stepCounter = document.getElementById('step-counter');
+        const statusDiv = document.getElementById('automation-status');
+        
+        if (progressBar) {
+          progressBar.style.width = data.percentage + '%';
+        }
+        
+        if (progressText) {
+          progressText.textContent = data.description || 'Processing...';
+        }
+        
+        if (stepCounter) {
+          stepCounter.textContent = `Step ${data.step} of ${data.total_steps}`;
+        }
+        
+        if (statusDiv) {
+          statusDiv.textContent = data.description || 'Processing...';
+        }
+        
+        // Only add log entry when step changes (not on every progress update)
+        if (data.step !== lastLoggedStep) {
+          addLogEntry(`Step ${data.step}: ${data.description}`, data.success ? 'info' : 'error');
+          lastLoggedStep = data.step;
+        }
+        
+        // Check if completed
+        if (data.completed) {
+          clearInterval(pollInterval);
+          
+          // Check both data.success and data.result.success for proper success detection
+          const isSuccess = data.success === true || (data.result && data.result.success === true);
+          
+          if (isSuccess) {
+            // Success - just update progress bar, no dialog or messages
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressText) progressText.textContent = 'VPN automation completed successfully!';
+            if (stepCounter) stepCounter.textContent = `Step ${data.total_steps} of ${data.total_steps}`;
+            
+            // Don't show completion dialog or success messages
+            
+          } else {
+            // Failed
+            const errorMsg = data.error_message || (data.result && data.result.error_message) || 'Unknown error';
+            updateAutomationStatus('Automation failed: ' + errorMsg, true);
+            addLogEntry('Automation failed: ' + errorMsg, 'error');
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error polling progress:', error);
+        addLogEntry('Error polling progress: ' + error, 'error');
+      });
+  }, 200); // Poll every 200ms (0.2 seconds) for faster step detection
+}
+
+function updateAutomationStatus(message, isError = false) {
+  const statusDiv = document.getElementById('automation-status');
+  if (statusDiv) {
+    statusDiv.textContent = message;
+    statusDiv.style.color = isError ? '#dc2626' : '#6b7280';
   }
 }
 
-function showAutomationError(errorMessage) {
-  const statusDiv = document.getElementById('automation-status');
-  statusDiv.innerHTML = `
-    <div style="color: #dc2626; font-weight: 600;">
-      <i class="fas fa-exclamation-circle" style="margin-right: 0.5rem;"></i>
-      Error
-    </div>
-    <div style="margin-top: 0.5rem; color: #374151;">
-      ${errorMessage}
+function showAutomationComplete(result) {
+  const contentDiv = document.getElementById('template-content');
+  
+  // Safely get credentials with fallbacks
+  const credentials = result && result.vpn_credentials ? result.vpn_credentials : { username: 'N/A', password: 'N/A' };
+  
+  contentDiv.innerHTML = `
+    <div style="background: #f0fdf4; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #059669;">
+      <h4 style="margin: 0 0 1rem 0; color: #059669; font-size: 1.1rem;">
+        <i class="fas fa-check-circle" style="margin-right: 0.5rem;"></i>
+        VPN Account Creation Completed
+      </h4>
+      
+      <div style="background: white; padding: 1rem; border-radius: 6px; border: 1px solid #d1d5db; margin-bottom: 1rem;">
+        <h5 style="margin: 0 0 0.5rem 0; color: #374151;">Account Details:</h5>
+        <div style="font-family: monospace; font-size: 0.9rem; color: #059669;">
+          <strong>Username:</strong> ${credentials.username}<br>
+          <strong>Password:</strong> ${credentials.password}
+        </div>
+      </div>
+      
+      <div style="background: #eff6ff; padding: 1rem; border-radius: 6px; border-left: 3px solid #3b82f6;">
+        <div style="font-size: 0.9rem; color: #1e40af;">
+          <i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>
+          <strong>Next Steps:</strong>
+        </div>
+        <ul style="margin: 0.5rem 0 0 1.5rem; color: #374151; font-size: 0.85rem;">
+          <li>An email draft has been created in Outlook with the VPN credentials</li>
+          <li>The email includes setup guides for FortiToken 2FA and VPN client configuration</li>
+          <li>Please review and send the email to the user</li>
+        </ul>
+      </div>
+      
+      <div style="margin-top: 1rem;">
+        <button onclick="location.reload()" style="padding: 0.75rem 1.5rem; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+          <i class="fas fa-refresh" style="margin-right: 0.5rem;"></i>Refresh Page
+        </button>
+      </div>
     </div>
   `;
+}
+
+// Legacy function - replaced by executeVPNCreationAutomationRealTime
+// This function is kept for backward compatibility but is no longer used
+
+// Legacy functions - replaced by real-time progress system
+// These functions are kept for backward compatibility
+
+function updateAutomationProgress(data) {
+  // This function is deprecated - real-time progress is now handled by pollAutomationProgress
+  console.log('Legacy updateAutomationProgress called - consider updating to real-time system');
+}
+
+function showAutomationError(errorMessage) {
+  updateAutomationStatus(errorMessage, true);
 }
 
 function retryAutomation() {

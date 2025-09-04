@@ -28,6 +28,33 @@ class VPNAutomationService:
     def __init__(self):
         self.driver = None
         self.wait = None
+        self.progress_callback = None
+        self.current_step = 0
+        self.total_steps = 18
+        
+    def set_progress_callback(self, callback):
+        """Set a callback function to receive progress updates"""
+        self.progress_callback = callback
+    
+    def update_progress(self, step_number: int, step_description: str, success: bool = True):
+        """Update progress and notify callback if set"""
+        self.current_step = step_number
+        if self.progress_callback:
+            try:
+                self.progress_callback({
+                    'step': step_number,
+                    'total_steps': self.total_steps,
+                    'description': step_description,
+                    'success': success,
+                    'percentage': round((step_number / self.total_steps) * 100, 1)
+                })
+                # Small delay to ensure progress update is processed
+                time.sleep(0.1)
+            except Exception as e:
+                logging.warning(f"Progress callback failed: {e}")
+        
+        logging.info(f"Step {step_number}/{self.total_steps}: {step_description}")
+        print(f"DEBUG: Step {step_number}/{self.total_steps}: {step_description}", flush=True)
         
     def generate_vpn_password(self, length: int = 12) -> str:
         """Generate a secure random password for VPN account"""
@@ -265,12 +292,14 @@ class VPNAutomationService:
     def navigate_to_user_wizard(self) -> bool:
         """Step 3-4: Navigate to user wizard and start process"""
         try:
-            # Step 3: Wait 1s then navigate to wizard
+            # Step 3: Navigate to wizard
+            self.update_progress(3, "Navigating to user wizard...")
             time.sleep(1)
             self.driver.get("https://203.125.240.114/ng/user/wizard")
             logging.info("Navigated to user wizard")
             
-            # Step 4: Wait 3s then click primary button
+            # Step 4: Start wizard
+            self.update_progress(4, "Starting user creation wizard...")
             time.sleep(2)
             primary_button = self.wait.until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR, 
@@ -340,6 +369,7 @@ class VPNAutomationService:
         """Steps 7-12: Configure two-factor authentication"""
         try:
             # Step 7: Toggle 2FA
+            self.update_progress(7, "Enabling two-factor authentication...")
             time.sleep(0.5)
             tfa_toggle = self.wait.until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR,
@@ -349,7 +379,8 @@ class VPNAutomationService:
             logging.info("Enabled two-factor authentication")
             
             # Step 8: Select radio option
-            time.sleep(0.5)
+            self.update_progress(8, "Selecting authentication method...")
+            time.sleep(0.7)  # Increased delay to ensure step gets logged
             radio_option = self.wait.until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR,
                 "#ng-base > form > div.content.full-height > div.content-container.slot-filled > div.slot-filled > dialog-content > f-local-user-wizard > f-two-factor-auth > section > f-field:nth-child(1) > div > field-value > f-radio-group > label:nth-child(4)"
@@ -357,6 +388,7 @@ class VPNAutomationService:
             radio_option.click()
             
             # Step 9: Click dropdown
+            self.update_progress(9, "Opening token selection dropdown...")
             time.sleep(0.5)
             dropdown = self.wait.until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR,
@@ -365,6 +397,7 @@ class VPNAutomationService:
             dropdown.click()
             
             # Step 10: Select dropdown option by text content
+            self.update_progress(10, "Selecting FortiToken device...")
             time.sleep(0.5)
             dropdown_option = self.wait.until(EC.element_to_be_clickable((
                 By.XPATH,
@@ -373,6 +406,7 @@ class VPNAutomationService:
             dropdown_option.click()
             
             # Step 11: Fill email field
+            self.update_progress(11, "Setting email for notifications...")
             time.sleep(2)
             try:
                 # Try multiple approaches to find the email input field
@@ -416,6 +450,7 @@ class VPNAutomationService:
                     return False
             
             # Step 12: Continue
+            self.update_progress(12, "Finalizing two-factor authentication...")
             time.sleep(0.5)
             primary_button = self.wait.until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR,
@@ -437,6 +472,7 @@ class VPNAutomationService:
         """Steps 13-16: Configure user groups"""
         try:
             # Step 13: Toggle user groups
+            self.update_progress(13, "Enabling user group configuration...")
             time.sleep(0.5)
             groups_toggle = self.wait.until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR,
@@ -445,7 +481,8 @@ class VPNAutomationService:
             groups_toggle.click()
             
             # Step 14: Click add placeholder
-            time.sleep(0.5)
+            self.update_progress(14, "Opening group selection...")
+            time.sleep(0.7)  # Increased delay to ensure step gets logged
             add_placeholder = self.wait.until(EC.element_to_be_clickable((
                 By.CSS_SELECTOR,
                 "#ng-base > form > div.content.full-height > div.content-container.slot-filled > div.slot-filled > dialog-content > f-local-user-wizard > section > div:nth-child(2) > div > div > div.add-placeholder"
@@ -453,6 +490,7 @@ class VPNAutomationService:
             add_placeholder.click()
             
             # Step 15: Select group entry by text content
+            self.update_progress(15, "Selecting SSL_VPN_USERS group...")
             time.sleep(1.5)
             try:
                 # Try to find the SSL_VPN_USERS div element
@@ -483,6 +521,7 @@ class VPNAutomationService:
                     return False
             
             # Step 16: Final continue
+            self.update_progress(16, "Finalizing user group configuration...")
             time.sleep(0.5)
             try:
                 primary_button = self.wait.until(EC.element_to_be_clickable((
@@ -771,9 +810,22 @@ Infra Intern"""
     
     def cleanup(self):
         """Close browser and cleanup resources"""
-        if self.driver:
-            self.driver.quit()
-            logging.info("Browser session closed")
+        try:
+            if self.driver:
+                # Try to close the browser gracefully
+                try:
+                    self.driver.quit()
+                    logging.info("Browser session closed successfully")
+                    print("DEBUG: Browser session closed successfully", flush=True)
+                except Exception as quit_error:
+                    # Browser might already be closed or session invalid
+                    logging.warning(f"Browser cleanup had minor issue (this is normal): {quit_error}")
+                    print(f"DEBUG: Browser cleanup had minor issue (this is normal): {quit_error}", flush=True)
+                finally:
+                    self.driver = None
+        except Exception as cleanup_error:
+            logging.warning(f"Cleanup error (this is normal): {cleanup_error}")
+            print(f"DEBUG: Cleanup error (this is normal): {cleanup_error}", flush=True)
     
     def execute_vpn_creation_automation(self, sender_email: str, vpn_username: str, vpn_password: str) -> Dict:
         """Execute the complete VPN creation automation"""
@@ -790,45 +842,57 @@ Infra Intern"""
         
         try:
             # Setup browser
+            self.update_progress(1, "Setting up browser...")
+            time.sleep(0.2)  # Small delay to ensure step 1 gets logged
             if not self.setup_browser():
+                self.update_progress(1, "Failed to setup browser", False)
                 results['error_message'] = "Failed to setup browser"
                 return results
             results['steps_completed'] = 1
             
             # Login to VPN system
+            self.update_progress(2, "Logging into VPN system...")
             if not self.login_to_vpn_system():
+                self.update_progress(2, "Failed to login to VPN system", False)
                 results['error_message'] = "Failed to login to VPN system"
                 return results
             results['steps_completed'] = 2
             
-            # Navigate to wizard
+            # Navigate to wizard (includes steps 3-4)
             if not self.navigate_to_user_wizard():
+                self.update_progress(4, "Failed to navigate to user wizard", False)
                 results['error_message'] = "Failed to navigate to user wizard"
                 return results
             results['steps_completed'] = 4
             
             # Fill credentials
+            self.update_progress(5, "Filling user credentials...")
             if not self.fill_user_credentials(vpn_username, vpn_password):
+                self.update_progress(5, "Failed to fill user credentials", False)
                 results['error_message'] = "Failed to fill user credentials"
                 return results
             results['steps_completed'] = 5
             
             # Continue wizard
+            self.update_progress(6, "Continuing wizard...")
             if not self.continue_wizard_step6():
+                self.update_progress(6, "Failed to continue wizard", False)
                 results['error_message'] = "Failed to continue wizard"
                 return results
             results['steps_completed'] = 6
             
-            # Configure 2FA
+            # Configure 2FA (includes steps 7-12)
             if not self.configure_two_factor_auth(vpn_username):
+                self.update_progress(12, "Failed to configure two-factor authentication", False)
                 results['error_message'] = "Failed to configure two-factor authentication"
                 return results
             results['steps_completed'] = 12
             
-            # Configure groups
-            print("DEBUG: Starting user groups configuration (step 16)...", flush=True)
+            # Configure groups (includes steps 13-16)
+            print("DEBUG: Starting user groups configuration (steps 13-16)...", flush=True)
             logging.info("Starting user groups configuration (step 16)...")
             if not self.configure_user_groups():
+                self.update_progress(16, "Failed to configure user groups", False)
                 results['error_message'] = "Failed to configure user groups"
                 return results
             results['steps_completed'] = 16
@@ -836,23 +900,32 @@ Infra Intern"""
             logging.info("User groups configuration completed successfully, proceeding to Outlook...")
             
             # Open Outlook
+            self.update_progress(17, "Creating email draft in Outlook...")
             print("DEBUG: Starting Outlook email creation (step 17)...", flush=True)
             logging.info("Starting Outlook email creation (step 17)...")
             if not self.open_outlook_and_draft_email(vpn_username, vpn_password):
+                self.update_progress(17, "Failed to open Outlook", False)
                 results['error_message'] = "Failed to open Outlook"
                 return results
             results['steps_completed'] = 17
             print("DEBUG: Outlook email creation completed successfully!", flush=True)
             logging.info("Outlook email creation completed successfully!")
             
+            self.update_progress(18, "VPN automation completed successfully!")
             results['success'] = True
             results['steps_completed'] = 18
+            print("DEBUG: All automation steps completed successfully!", flush=True)
+            logging.info("All automation steps completed successfully!")
             
         except Exception as e:
+            self.update_progress(self.current_step, f"Automation failed: {str(e)}", False)
             results['error_message'] = f"Automation failed: {str(e)}"
+            print(f"DEBUG: Automation failed with exception: {e}", flush=True)
             logging.error(f"VPN automation error: {e}")
         finally:
+            # Only call cleanup once
             self.cleanup()
+            print("DEBUG: Automation cleanup completed", flush=True)
         
         return results
 

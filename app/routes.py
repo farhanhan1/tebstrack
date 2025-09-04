@@ -11,6 +11,7 @@ from sqlalchemy import func
 import datetime
 import csv
 import io
+import threading
 from .fetch_emails_util import fetch_and_store_emails
 import logging
 from app.extensions import csrf
@@ -1451,6 +1452,72 @@ def execute_vpn_creation():
         return jsonify({'error': f'Automation failed: {str(e)}'}), 500
 
 
+@main.route('/api/automation/vpn-creation/execute-background', methods=['POST'])
+@login_required
+@csrf.exempt
+def execute_vpn_creation_background():
+    """Execute VPN account creation automation in background with real-time progress"""
+    try:
+        data = request.get_json()
+        sender_email = data.get('sender_email', '')
+        vpn_username = data.get('vpn_username', '')
+        vpn_password = data.get('vpn_password', '')
+        
+        if not all([sender_email, vpn_username, vpn_password]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        # Import progress tracking
+        from .automation_progress import progress_tracker, run_automation_with_progress
+        from .automation_service import get_automation_service
+        
+        # Create a new job
+        job_id = progress_tracker.create_job()
+        
+        # Start automation in background thread
+        automation_service = get_automation_service()
+        thread = threading.Thread(
+            target=run_automation_with_progress,
+            args=(automation_service, sender_email, vpn_username, vpn_password, job_id)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'message': 'Automation started in background'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error starting background VPN automation: {e}")
+        return jsonify({'error': f'Failed to start automation: {str(e)}'}), 500
+
+
+@main.route('/api/automation/vpn-creation/progress/<job_id>', methods=['GET'])
+@login_required
+def get_automation_progress(job_id):
+    """Get real-time progress of automation job"""
+    try:
+        from .automation_progress import progress_tracker
+        
+        progress = progress_tracker.get_progress(job_id)
+        if progress is None:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        # Convert datetime objects to strings for JSON serialization
+        progress_copy = progress.copy()
+        if 'start_time' in progress_copy:
+            progress_copy['start_time'] = progress_copy['start_time'].isoformat()
+        if 'last_update' in progress_copy:
+            progress_copy['last_update'] = progress_copy['last_update'].isoformat()
+        
+        return jsonify(progress_copy)
+        
+    except Exception as e:
+        logging.error(f"Error getting automation progress: {e}")
+        return jsonify({'error': f'Failed to get progress: {str(e)}'}), 500
+
+
 @main.route('/api/automation/vpn-creation/status', methods=['GET'])
 @login_required
 def get_automation_status():
@@ -1461,7 +1528,6 @@ def get_automation_status():
         'status': 'ready',
         'message': 'Automation service is ready'
     })
-
 
 @main.route('/api/ai/knowledge-status')
 @login_required
