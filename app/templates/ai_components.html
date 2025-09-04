@@ -568,8 +568,8 @@ function showAutomationProgress(senderEmail, vpnUsername, vpnPassword) {
   contentDiv.innerHTML = `
     <div style="background: #f0fdf4; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #059669;">
       <h4 style="margin: 0 0 1rem 0; color: #059669; font-size: 1.1rem;">
-        <i class="fas fa-cog fa-spin" style="margin-right: 0.5rem;"></i>
-        VPN Account Creation in Progress
+        <i id="automation-icon" class="fas fa-cog fa-spin" style="margin-right: 0.5rem;"></i>
+        <span id="automation-title">VPN Account Creation in Progress</span>
       </h4>
       
       <div style="margin-bottom: 1rem; font-size: 0.9rem; color: #374151;">
@@ -720,9 +720,21 @@ function pollAutomationProgress(jobId) {
           const isSuccess = data.success === true || (data.result && data.result.success === true);
           
           if (isSuccess) {
-            // Success - just update progress bar, no dialog or messages
+            // Success - update header, progress bar, and status
+            
+            // Change spinning cog to tick and update title
+            const automationIcon = document.getElementById('automation-icon');
+            const automationTitle = document.getElementById('automation-title');
+            if (automationIcon) {
+              automationIcon.className = 'fas fa-check'; // Remove fa-spin and change to check
+            }
+            if (automationTitle) {
+              automationTitle.textContent = 'VPN Account Creation Success!';
+            }
+            
+            // Update progress elements
             if (progressBar) progressBar.style.width = '100%';
-            if (progressText) progressText.textContent = 'VPN automation completed successfully!';
+            if (progressText) progressText.textContent = ''; // Clear the duplicate text
             if (stepCounter) stepCounter.textContent = `Step ${data.total_steps} of ${data.total_steps}`;
             
             // Don't show completion dialog or success messages
