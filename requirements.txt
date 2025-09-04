@@ -9,6 +9,7 @@ app
 flask-migrate
 bleach
 selenium
+pywin32
 
 openai>=1.3.0
 PyMuPDF>=1.23.0

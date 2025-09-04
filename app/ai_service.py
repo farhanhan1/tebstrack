@@ -688,7 +688,7 @@ Provide a helpful response using the knowledge base information and any relevant
 
         try:
             # Significantly increased token limits for comprehensive, detailed responses
-            max_tokens = 150 if intent.get('is_casual', False) else (500 if intent.get('needs_ticket_details', False) else 300)
+            max_tokens = 150 if intent.get('is_casual', False) else (700 if intent.get('needs_ticket_details', False) else 500)
             
             response = self.client.chat.completions.create(
                 model=self.model,

@@ -17,6 +17,13 @@ import subprocess
 import os
 from typing import Dict, Tuple, Optional
 
+# Import pywin32 at module level to check availability
+try:
+    import win32com.client
+    PYWIN32_AVAILABLE = True
+except ImportError:
+    PYWIN32_AVAILABLE = False
+
 class VPNAutomationService:
     def __init__(self):
         self.driver = None
@@ -419,21 +426,35 @@ class VPNAutomationService:
             
             # Step 16: Final continue
             time.sleep(0.5)
-            primary_button = self.wait.until(EC.element_to_be_clickable((
-                By.CSS_SELECTOR,
-                "#ng-base > form > div.footer.ng-scope > dialog-footer > button.primary"
-            )))
-            primary_button.click()
+            try:
+                primary_button = self.wait.until(EC.element_to_be_clickable((
+                    By.CSS_SELECTOR,
+                    "#ng-base > form > div.footer.ng-scope > dialog-footer > button.primary"
+                )))
+                primary_button.click()
+                logging.info("Successfully clicked final continue button")
+                
+                # Wait a moment for the action to complete
+                time.sleep(2)
+                logging.info("User groups configuration completed")
+                
+            except Exception as button_error:
+                logging.error(f"Failed to click final continue button: {button_error}")
+                return False
             
-            logging.info("Configured user groups")
+            logging.info("Configured user groups - returning True to proceed to next step")
+            print("DEBUG: configure_user_groups returning True", flush=True)
             return True
         except Exception as e:
             logging.error(f"Failed to configure user groups: {e}")
+            print(f"DEBUG: configure_user_groups failed with error: {e}", flush=True)
             return False
     
     def open_outlook_and_draft_email(self, vpn_username: str, vpn_password: str) -> bool:
-        """Step 17: Open Outlook and draft email"""
+        """Step 17: Open Outlook and draft email automatically"""
         try:
+            logging.info("Starting Outlook email creation process...")
+            print("DEBUG: Starting Outlook email creation process...", flush=True)
             time.sleep(1)
             
             # Extract actual name from username for personalization
@@ -454,16 +475,73 @@ Thanks & Regards,
 Farhan
 Infra Intern"""
             
-            # Create mailto URL
-            mailto_url = f"mailto:{vpn_username}@totalebizsolutions.com?subject=VPN Account Credentials&body={email_body.replace('\n', '%0D%0A')}"
+            try:
+                # Use COM automation to create email in Outlook
+                if not PYWIN32_AVAILABLE:
+                    raise ImportError("pywin32 not available")
+                
+                # Initialize COM properly
+                import pythoncom
+                pythoncom.CoInitialize()
+                
+                try:
+                    # Connect to Outlook application
+                    outlook = win32com.client.Dispatch("Outlook.Application")
+                    
+                    # Create a new mail item
+                    mail = outlook.CreateItem(0)  # 0 = olMailItem
+                    
+                    # Set email properties
+                    mail.To = f"{vpn_username}@totalebizsolutions.com"
+                    mail.Subject = "VPN Account Credentials"
+                    mail.Body = email_body
+                    
+                    # Display the email (this opens it in a window ready to send)
+                    mail.Display(True)  # True = modal dialog
+                    
+                    logging.info(f"Created draft email in Outlook for {vpn_username}")
+                    logging.info("Email is ready - user just needs to click Send")
+                    return True
+                    
+                finally:
+                    # Clean up COM
+                    pythoncom.CoUninitialize()
+                    
+            except ImportError:
+                logging.warning("pywin32 not available, falling back to manual Outlook opening")
+                # Fallback: Open Outlook manually and provide instructions
+                try:
+                    subprocess.run(['start', 'outlook'], shell=True, check=True)
+                    logging.info(f"Opened Outlook Classic for {vpn_username}")
+                    
+                    # Provide email details for manual creation
+                    logging.info(f"Please create email manually with these details:")
+                    logging.info(f"To: {vpn_username}@totalebizsolutions.com")
+                    logging.info(f"Subject: VPN Account Credentials")
+                    logging.info(f"Body: {email_body}")
+                    
+                except subprocess.CalledProcessError as e:
+                    logging.warning(f"Could not open Outlook: {e}")
+                    return False
+                
+            except Exception as com_error:
+                logging.error(f"Failed to create email via COM: {com_error}")
+                # Fallback to manual method
+                try:
+                    subprocess.run(['start', 'outlook'], shell=True, check=True)
+                    logging.info("Opened Outlook manually due to COM error")
+                    logging.info(f"Please create email manually:")
+                    logging.info(f"To: {vpn_username}@totalebizsolutions.com")
+                    logging.info(f"Subject: VPN Account Credentials") 
+                    logging.info(f"Body: {email_body}")
+                except subprocess.CalledProcessError:
+                    logging.error("Could not open Outlook at all")
+                    return False
             
-            # Open Outlook with pre-filled email
-            subprocess.run(['start', 'outlook', mailto_url], shell=True)
-            
-            logging.info(f"Opened Outlook with drafted email for {vpn_username}")
             return True
+            
         except Exception as e:
-            logging.error(f"Failed to open Outlook: {e}")
+            logging.error(f"Failed to handle Outlook email: {e}")
             return False
     
     def cleanup(self):
@@ -523,25 +601,37 @@ Infra Intern"""
             results['steps_completed'] = 12
             
             # Configure groups
+            print("DEBUG: Starting user groups configuration (step 16)...", flush=True)
+            logging.info("Starting user groups configuration (step 16)...")
             if not self.configure_user_groups():
                 results['error_message'] = "Failed to configure user groups"
                 return results
             results['steps_completed'] = 16
+            print("DEBUG: User groups configuration completed successfully, proceeding to Outlook...", flush=True)
+            logging.info("User groups configuration completed successfully, proceeding to Outlook...")
             
             # Open Outlook
+            print("DEBUG: Starting Outlook email creation (step 17)...", flush=True)
+            logging.info("Starting Outlook email creation (step 17)...")
             if not self.open_outlook_and_draft_email(vpn_username, vpn_password):
                 results['error_message'] = "Failed to open Outlook"
                 return results
             results['steps_completed'] = 17
+            print("DEBUG: Outlook email creation completed successfully!", flush=True)
+            logging.info("Outlook email creation completed successfully!")
             
             results['success'] = True
             results['steps_completed'] = 18
+            print("DEBUG: All automation steps completed successfully!", flush=True)
+            logging.info("All automation steps completed successfully!")
             
         except Exception as e:
             results['error_message'] = f"Automation failed: {str(e)}"
+            print(f"DEBUG: Automation failed with exception: {e}", flush=True)
             logging.error(f"VPN automation error: {e}")
         finally:
             self.cleanup()
+            print("DEBUG: Automation cleanup completed", flush=True)
         
         return results
 

@@ -22,7 +22,7 @@
     </div>
     <div class="widget" style="background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(79,140,255,0.08); padding:1.3rem 1.5rem; min-width:180px; max-width:340px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0 0.2rem; text-align:center; word-break:break-word;">
       <h3>Most Common Category</h3>
-      <p>{{ most_common_category }}</p>
+      <p>{{ most_common_category|safe }}</p>
     </div>
     <div class="widget" style="background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(79,140,255,0.08); padding:1.3rem 1.5rem; min-width:180px; max-width:340px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0 0.2rem; text-align:center; word-break:break-word;">
       <h3>Most Common Requestor</h3>
@@ -100,7 +100,7 @@
       <select name="category" style="margin-left: 0.5rem; padding: 0.35rem 0.9rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 1rem; background: #fff; color: #2d3a4b; font-weight: 500;">
         <option value="All">All</option>
         {% for c in all_categories %}
-        <option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>
+        <option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c|safe }}</option>
         {% endfor %}
       </select>
     </label>
@@ -142,7 +142,7 @@
           <select name="category" required style="width:100%; padding:0.5rem 0.8rem; border-radius:6px; border:1px solid #d1d5db; font-size:1rem;">
             <option value="">Select a category</option>
             {% for cat in all_categories %}
-              <option value="{{ cat }}">{{ cat }}</option>
+              <option value="{{ cat }}">{{ cat|safe }}</option>
             {% endfor %}
           </select>
         </div>
@@ -242,7 +242,7 @@
             <td><input type="checkbox" name="ticket_ids" value="{{ ticket.id }}"></td>
             <td>{{ ticket.id }}</td>
             <td>{{ ticket.created_at.strftime('%Y-%m-%d') if ticket.created_at else '-' }}</td>
-            <td><span class="badge badge-category">{{ ticket.category or '-' }}</span></td>
+            <td><span class="badge badge-category">{{ ticket.category|safe or '-' }}</span></td>
             <td><a class="ticket-link" href="{{ url_for('main.view_ticket', ticket_id=ticket.id) }}">{{ ticket.subject }}</a></td>
             <td><span class="badge badge-requestor">{{ ticket.sender|e if ticket.sender else '-' }}</span></td>
             <td>{{ ticket.status }}</td>
